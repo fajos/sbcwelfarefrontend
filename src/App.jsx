@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import { 
-  Users, Search, Plus, Edit2, Trash2, 
-  RefreshCw, Download, Church, Calendar, 
-  Phone, Mail, MapPin, Briefcase, Heart, 
+import {
+  Users, Search, Plus, Edit2, Trash2,
+  RefreshCw, Download, Church, Calendar,
+  Phone, Mail, MapPin, Briefcase, Heart,
   GraduationCap, Home, Briefcase as WorkIcon,
   Cake, Gift
 } from 'lucide-react';
@@ -18,18 +18,18 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState({
-    firstName: '', 
-    lastName: '', 
-    email: '', 
+    firstName: '',
+    lastName: '',
+    email: '',
     gender: '',
-    phoneNumber: '', 
-    whatsappNumber: '', 
+    phoneNumber: '',
+    whatsappNumber: '',
     dateOfBirth: '',
-    maritalStatus: '', 
-    weddingAnniversary: '', 
+    maritalStatus: '',
+    weddingAnniversary: '',
     residentialAddress: '',
-    occupation: '', 
-    completedFoundationClass: 'No', 
+    occupation: '',
+    completedFoundationClass: 'No',
     churchUnit: ''
   });
 
@@ -64,7 +64,7 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.firstName || !formData.lastName) {
       toast.error('First Name and Last Name are required');
@@ -124,9 +124,9 @@ function App() {
   const exportToCSV = () => {
     const headers = ['First Name', 'Last Name', 'Email', 'Gender', 'Phone', 'WhatsApp', 'DOB', 'Marital Status', 'Wedding Anniversary', 'Address', 'Occupation', 'Foundation Class', 'Church Unit'];
     const csvData = filteredMembers.map(m => [
-      m.firstName || '', 
-      m.lastName || '', 
-      m.email || '', 
+      m.firstName || '',
+      m.lastName || '',
+      m.email || '',
       m.gender || '',
       m.phoneNumber || '',
       m.whatsappNumber || '',
@@ -138,7 +138,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-    
+
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -164,7 +164,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <Toaster position="top-right" />
-      
+
       {/* Header */}
       <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
@@ -364,8 +364,8 @@ function App() {
               <h2 className="text-2xl font-bold text-green-800">
                 {editingMember ? '✏️ Edit Member' : '➕ Add New Member'}
               </h2>
-              <button 
-                onClick={() => { setIsFormOpen(false); resetForm(); }} 
+              <button
+                onClick={() => { setIsFormOpen(false); resetForm(); }}
                 className="text-gray-500 hover:text-gray-700 text-3xl"
               >
                 ×
@@ -375,51 +375,53 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Personal Information Section */}
                 <div className="md:col-span-2">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2">Personal Information</h3>
+                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2">
+                    👤 Personal Information
+                  </h3>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
+                  <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
                     <option value="">Select Gender</option>
                     <option>Male</option>
                     <option>Female</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                  <input type="tel" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="tel" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                  <input type="tel" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="tel" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date of Birth</label>
-                  <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                  <select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
+                  <select value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
                     <option value="">Select Status</option>
                     <option>Single</option>
                     <option>Married</option>
@@ -427,41 +429,43 @@ function App() {
                     <option>Widowed</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">💍 Wedding Anniversary</label>
-                  <input type="date" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="date" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">🏠 Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">💼 Occupation</label>
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                </div>
+
                 {/* Church Information Section */}
                 <div className="md:col-span-2">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2 mt-4">Church Information</h3>
+                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2 mt-4">
+                    ⛪ Church Information
+                  </h3>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
                     <option value="No">❌ Not Completed</option>
                     <option value="Yes">✅ Completed</option>
                   </select>
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare, Prayer Warriors" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare, Prayer Warriors" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
                 </div>
               </div>
-              
+
               <div className="flex gap-3 mt-6">
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">
                   {editingMember ? '💾 Update Member' : '💾 Save Member'}
