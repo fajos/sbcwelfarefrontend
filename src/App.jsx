@@ -1,15 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import {
-  Users, Search, Plus, Edit2, Trash2,
-  RefreshCw, Download, Church, Calendar,
-  Phone, Mail, MapPin, Briefcase, Heart,
-  GraduationCap, Home, Briefcase as WorkIcon,
-  Cake, Gift
-} from 'lucide-react';
+// ... other imports
 
-const API_URL = 'http://localhost:5000/api';
+// Better API URL configuration
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Configure axios defaults
+axios.defaults.timeout = 30000;
+
+// Add request interceptor for debugging
+axios.interceptors.request.use(
+  config => {
+    console.log(`📤 Making request to: ${config.url}`);
+    return config;
+  },
+  error => {
+    console.error('📤 Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for debugging
+axios.interceptors.response.use(
+  response => {
+    console.log(`📥 Response from: ${response.config.url}`, response.status);
+    return response;
+  },
+  error => {
+    console.error('📥 Response error:', error.response?.status, error.message);
+    if (error.code === 'ECONNABORTED') {
+      toast.error('Request timeout. Please check your connection.');
+    } else if (error.response?.status === 404) {
+      toast.error('Backend server not found. Please check if it\'s running.');
+    } else if (error.response?.status === 500) {
+      toast.error('Server error. Please try again later.');
+    } else if (!error.response) {
+      toast.error('Cannot connect to server. Please check your network.');
+    }
+    return Promise.reject(error);
+  }
+);
 
 function App() {
   const [members, setMembers] = useState([]);
@@ -17,48 +48,42 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    gender: '',
-    phoneNumber: '',
-    whatsappNumber: '',
-    dateOfBirth: '',
-    maritalStatus: '',
-    weddingAnniversary: '',
-    residentialAddress: '',
-    occupation: '',
-    completedFoundationClass: 'No',
-    churchUnit: ''
+    firstName: '', lastName: '', email: '', gender: '',
+    phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
+    maritalStatus: '', weddingAnniversary: '', residentialAddress: '',
+    occupation: '', completedFoundationClass: 'No', churchUnit: ''
   });
 
   useEffect(() => {
+    // Check backend health on startup
+    checkBackendHealth();
     fetchMembers();
   }, []);
 
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = members.filter(member =>
-        member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.phoneNumber?.includes(searchTerm) ||
-        member.churchUnit?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredMembers(filtered);
-    } else {
-      setFilteredMembers(members);
+  const checkBackendHealth = async () => {
+    try {
+      const response = await axios.get(`${API_URL.replace('/api', '')}/api/health`);
+      console.log('✅ Backend is healthy:', response.data);
+      toast.success('Connected to server successfully');
+    } catch (error) {
+      console.error('❌ Backend health check failed:', error);
+      toast.error(`Cannot connect to backend server. Please ensure it's running at ${API_URL}`);
     }
-  }, [searchTerm, members]);
+  };
 
   const fetchMembers = async () => {
+    setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
       setMembers(response.data);
-      toast.success('Members loaded successfully');
+      toast.success(`${response.data.length} members loaded`);
     } catch (error) {
       console.error('Error fetching members:', error);
-      toast.error('Error loading members. Make sure backend is running on port 5000');
+      toast.error('Error loading members. Make sure backend is running.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -164,6 +189,11 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <Toaster position="top-right" />
+
+            {/* Add connection status indicator */}
+      <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-md px-3 py-1 text-xs">
+        {isLoading ? '🔄 Connecting...' : '✅ Connected'}
+      </div>
 
       {/* Header */}
       <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
