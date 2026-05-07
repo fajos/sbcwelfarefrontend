@@ -204,6 +204,20 @@ function App() {
     toast.success('Export successful!');
   };
 
+  // Function to reset database (clear all members)
+const resetDatabase = async () => {
+  if (window.confirm('⚠️ WARNING: This will delete ALL members. Are you absolutely sure?')) {
+    try {
+      await axios.delete(`${API_URL}/members`);
+      toast.success('Database cleared successfully');
+      fetchMembers();
+    } catch (error) {
+      console.error('Error clearing database:', error);
+      toast.error('Error clearing database');
+    }
+  }
+};
+
   const getStats = () => {
     return {
       total: members.length,
@@ -232,39 +246,45 @@ function App() {
       <Toaster position="top-right" />
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-3">
-              <Church className="w-10 h-10" />
-              <div>
-                <h1 className="text-2xl font-bold">C&S Saints Builder Church</h1>
-                <p className="text-green-200">Welfare Management System</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setIsImportOpen(true); resetForm(); }}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Upload className="w-5 h-5" /> Bulk Import
-              </button>
-              <button
-                onClick={exportToCSV}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
-              >
-                <Download className="w-5 h-5" /> Export CSV
-              </button>
-              <button
-                onClick={() => { setIsFormOpen(true); resetForm(); }}
-                className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
-              >
-                <Plus className="w-5 h-5" /> Add Member
-              </button>
-            </div>
-          </div>
+<header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
+  <div className="container mx-auto px-4 py-6">
+    <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center space-x-3">
+        <Church className="w-10 h-10" />
+        <div>
+          <h1 className="text-2xl font-bold">C&S Saints Builder Church</h1>
+          <p className="text-green-200">Welfare Management System</p>
         </div>
-      </header>
+      </div>
+      <div className="flex gap-3">
+        <button
+          onClick={() => { setIsImportOpen(true); resetForm(); }}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
+        >
+          <Upload className="w-5 h-5" /> Bulk Import
+        </button>
+        <button
+          onClick={exportToCSV}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
+        >
+          <Download className="w-5 h-5" /> Export CSV
+        </button>
+        <button
+          onClick={() => { setIsFormOpen(true); resetForm(); }}
+          className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
+        >
+          <Plus className="w-5 h-5" /> Add Member
+        </button>
+        <button
+          onClick={resetDatabase}
+          className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md"
+        >
+          <Trash2 className="w-5 h-5" /> Reset DB
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
