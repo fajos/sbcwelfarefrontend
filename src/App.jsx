@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import {
-  Users, Search, Plus, Edit2, Trash2,
-  RefreshCw, Download, Upload, Church,
-  Phone, Mail, Briefcase, Heart,
+import { 
+  Users, Search, Plus, Edit2, Trash2, 
+  RefreshCw, Download, Upload, Church, 
+  Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -41,7 +41,7 @@ function App() {
     if (cachedMembers) {
       setMembers(cachedMembers);
     }
-
+    
     // Fetch fresh data in background
     fetchMembers();
   }, []);
@@ -50,40 +50,25 @@ function App() {
   useEffect(() => {
     const topScroll = topScrollBarRef.current;
     const bottomScroll = bottomScrollBarRef.current;
-
-    if (!topScroll || !bottomScroll) return;
-
-    let isSyncingTop = false;
-    let isSyncingBottom = false;
-
-    const syncTopToBottom = () => {
-      if (isSyncingBottom) {
-        isSyncingBottom = false;
-        return;
-      }
-
-      isSyncingTop = true;
-      bottomScroll.scrollLeft = topScroll.scrollLeft;
-    };
-
-    const syncBottomToTop = () => {
-      if (isSyncingTop) {
-        isSyncingTop = false;
-        return;
-      }
-
-      isSyncingBottom = true;
-      topScroll.scrollLeft = bottomScroll.scrollLeft;
-    };
-
-    topScroll.addEventListener('scroll', syncTopToBottom);
-    bottomScroll.addEventListener('scroll', syncBottomToTop);
-
-    return () => {
-      topScroll.removeEventListener('scroll', syncTopToBottom);
-      bottomScroll.removeEventListener('scroll', syncBottomToTop);
-    };
-  }, []);
+    
+    if (topScroll && bottomScroll) {
+      const syncTopToBottom = () => {
+        bottomScroll.scrollLeft = topScroll.scrollLeft;
+      };
+      
+      const syncBottomToTop = () => {
+        topScroll.scrollLeft = bottomScroll.scrollLeft;
+      };
+      
+      topScroll.addEventListener('scroll', syncTopToBottom);
+      bottomScroll.addEventListener('scroll', syncBottomToTop);
+      
+      return () => {
+        topScroll.removeEventListener('scroll', syncTopToBottom);
+        bottomScroll.removeEventListener('scroll', syncBottomToTop);
+      };
+    }
+  }, [members]);
 
   const fetchMembers = async (forceRefresh = false) => {
     // Check cache first
@@ -93,7 +78,7 @@ function App() {
       setMembers(cachedMembers);
       return;
     }
-
+    
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
@@ -200,9 +185,9 @@ function App() {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-
+      
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-
+      
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -223,13 +208,13 @@ function App() {
           });
         }
       }
-
+      
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-
-      Promise.all(membersToImport.map(member =>
+      
+      Promise.all(membersToImport.map(member => 
         axios.post(`${API_URL}/members`, member)
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
@@ -241,7 +226,7 @@ function App() {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-
+      
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -251,7 +236,7 @@ function App() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -261,11 +246,11 @@ function App() {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-
+    
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -281,7 +266,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-
+    
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -303,7 +288,7 @@ function App() {
   };
 
   const stats = getStats();
-
+  
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -427,35 +412,23 @@ function App() {
 
         {/* Members Table - With Working Top Scroll Bar */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-
-          {/* TOP SCROLLBAR */}
-          <div className="bg-gray-100 border-b border-gray-300 p-2 sticky top-[72px] z-40">
-            <div className="text-xs text-gray-500 text-center mb-1">
-              ← Scroll horizontally using the bar below →
-            </div>
-
-            <div
+          
+          {/* TOP SCROLL BAR - Now with visible scroll thumb */}
+          <div className="bg-gray-100 border-b border-gray-300 p-2">
+            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally using the bar below →</div>
+            <div 
               ref={topScrollBarRef}
-              className="overflow-x-auto overflow-y-hidden"
+              className="overflow-x-auto"
+              style={{ scrollbarWidth: 'thin' }}
             >
-              <div
-                style={{
-                  width: tableContainerRef.current?.scrollWidth || '1400px',
-                  height: '1px',
-                }}
-              />
+              {/* This creates the scrollable area */}
+              <div style={{ width: '1400px', height: '1px' }}></div>
             </div>
           </div>
-
-          {/* ACTUAL TABLE CONTAINER */}
-          <div
-            ref={bottomScrollBarRef}
-            className="overflow-auto max-h-[70vh]"
-          >
-            <table
-              ref={tableContainerRef}
-              className="min-w-[1400px] w-full"
-            >
+          
+          {/* Table Header */}
+          <div className="overflow-x-hidden">
+            <table className="min-w-[1400px] w-full">
               <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
@@ -477,9 +450,9 @@ function App() {
               </thead>
             </table>
           </div>
-
+          
           {/* Table Body with BOTTOM Scroll Bar */}
-          <div
+          <div 
             ref={bottomScrollBarRef}
             className="overflow-x-auto"
           >
@@ -565,14 +538,14 @@ function App() {
               </tbody>
             </table>
           </div>
-
+          
           {/* Bottom Hint */}
-          <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
-            <ChevronLeft className="w-3 h-3" />
-            Use the scroll bar ABOVE or BELOW to scroll horizontally
-            <ChevronRight className="w-3 h-3" />
-          </div>
-
+  <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
+    <ChevronLeft className="w-3 h-3" />
+    Use the scroll bar ABOVE or BELOW to scroll horizontally
+    <ChevronRight className="w-3 h-3" />
+  </div>
+          
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
@@ -597,58 +570,58 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
