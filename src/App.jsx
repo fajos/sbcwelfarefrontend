@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import {
-  Users, Search, Plus, Edit2, Trash2,
-  RefreshCw, Download, Upload, Church,
-  Phone, Mail, Briefcase, Heart,
+import { 
+  Users, Search, Plus, Edit2, Trash2, 
+  RefreshCw, Download, Upload, Church, 
+  Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Cache configuration
+let cachedMembers = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
 function App() {
   const [members, setMembers] = useState([]);
@@ -28,8 +33,16 @@ function App() {
   // Refs for synchronized scrolling
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
+  const tableContainerRef = useRef(null);
 
+  // Load cached data immediately, then fetch fresh data in background
   useEffect(() => {
+    // Check if we have cached data
+    if (cachedMembers) {
+      setMembers(cachedMembers);
+    }
+    
+    // Fetch fresh data in background
     fetchMembers();
   }, []);
 
@@ -37,39 +50,47 @@ function App() {
   useEffect(() => {
     const topScroll = topScrollBarRef.current;
     const bottomScroll = bottomScrollBarRef.current;
-
+    
     if (topScroll && bottomScroll) {
-      const syncScroll = () => {
-        if (topScroll.scrollLeft !== bottomScroll.scrollLeft) {
-          bottomScroll.scrollLeft = topScroll.scrollLeft;
-        }
+      const syncTopToBottom = () => {
+        bottomScroll.scrollLeft = topScroll.scrollLeft;
       };
-
-      const syncScrollReverse = () => {
-        if (bottomScroll.scrollLeft !== topScroll.scrollLeft) {
-          topScroll.scrollLeft = bottomScroll.scrollLeft;
-        }
+      
+      const syncBottomToTop = () => {
+        topScroll.scrollLeft = bottomScroll.scrollLeft;
       };
-
-      topScroll.addEventListener('scroll', syncScroll);
-      bottomScroll.addEventListener('scroll', syncScrollReverse);
-
+      
+      topScroll.addEventListener('scroll', syncTopToBottom);
+      bottomScroll.addEventListener('scroll', syncBottomToTop);
+      
       return () => {
-        topScroll.removeEventListener('scroll', syncScroll);
-        bottomScroll.removeEventListener('scroll', syncScrollReverse);
+        topScroll.removeEventListener('scroll', syncTopToBottom);
+        bottomScroll.removeEventListener('scroll', syncBottomToTop);
       };
     }
   }, [members]);
 
-  const fetchMembers = async () => {
+  const fetchMembers = async (forceRefresh = false) => {
+    // Check cache first
+    const now = Date.now();
+    if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
+      console.log('Using cached data');
+      setMembers(cachedMembers);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
+      cachedMembers = response.data;
+      lastFetchTime = now;
       setMembers(response.data);
       toast.success(`${response.data.length} members loaded`);
     } catch (error) {
       console.error('Error fetching members:', error);
-      toast.error('Error loading members');
+      if (!cachedMembers) {
+        toast.error('Error loading members');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +111,9 @@ function App() {
         await axios.post(`${API_URL}/members`, formData);
         toast.success('Member added successfully');
       }
-      fetchMembers();
+      // Clear cache and refresh
+      cachedMembers = null;
+      await fetchMembers(true);
       resetForm();
       setIsFormOpen(false);
     } catch (error) {
@@ -124,7 +147,9 @@ function App() {
       try {
         await axios.delete(`${API_URL}/members/${id}`);
         toast.success('Member deleted successfully');
-        fetchMembers();
+        // Clear cache and refresh
+        cachedMembers = null;
+        await fetchMembers(true);
       } catch (error) {
         console.error('Error deleting member:', error);
         toast.error('Error deleting member');
@@ -147,7 +172,8 @@ function App() {
       try {
         await axios.delete(`${API_URL}/members`);
         toast.success('Database cleared successfully');
-        fetchMembers();
+        cachedMembers = null;
+        await fetchMembers(true);
       } catch (error) {
         console.error('Error clearing database:', error);
         toast.error('Error clearing database');
@@ -159,9 +185,9 @@ function App() {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-
+      
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-
+      
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -182,24 +208,25 @@ function App() {
           });
         }
       }
-
+      
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-
-      Promise.all(membersToImport.map(member =>
+      
+      Promise.all(membersToImport.map(member => 
         axios.post(`${API_URL}/members`, member)
-      )).then(() => {
+      )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
-        fetchMembers();
+        cachedMembers = null;
+        await fetchMembers(true);
         setImportData('');
         setIsImportOpen(false);
       }).catch(error => {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-
+      
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -209,7 +236,7 @@ function App() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -219,11 +246,11 @@ function App() {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-
+    
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -239,7 +266,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-
+    
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -261,7 +288,7 @@ function App() {
   };
 
   const stats = getStats();
-
+  
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -306,12 +333,6 @@ function App() {
                 className="bg-white text-green-800 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md text-sm md:text-base"
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
-              </button>
-              <button
-                onClick={resetDatabase}
-                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
-              >
-                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
               </button>
             </div>
           </div>
@@ -360,6 +381,13 @@ function App() {
           </div>
         </div>
 
+        {/* Loading Indicator */}
+        {isLoading && !cachedMembers && (
+          <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg mb-4 text-center">
+            Loading members from database...
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="bg-white rounded-lg shadow-md mb-6 p-4">
           <div className="flex gap-3 md:gap-4">
@@ -374,7 +402,7 @@ function App() {
               />
             </div>
             <button
-              onClick={fetchMembers}
+              onClick={() => fetchMembers(true)}
               className="bg-gray-600 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition text-sm md:text-base"
             >
               <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
@@ -382,20 +410,22 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table - With Top and Bottom Scroll Bars (Identical) */}
+        {/* Members Table - With Working Top Scroll Bar */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-
-          {/* TOP SCROLL BAR - Exact copy of the bottom scroll bar */}
-          <div className="bg-gray-50 border-b border-gray-200 p-2">
-            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally →</div>
-            <div
+          
+          {/* TOP SCROLL BAR - Now with visible scroll thumb */}
+          <div className="bg-gray-100 border-b border-gray-300 p-2">
+            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally using the bar below →</div>
+            <div 
               ref={topScrollBarRef}
               className="overflow-x-auto"
+              style={{ scrollbarWidth: 'thin' }}
             >
-              <div className="min-w-[1400px] h-4"></div>
+              {/* This creates the scrollable area */}
+              <div style={{ width: '1400px', height: '1px' }}></div>
             </div>
           </div>
-
+          
           {/* Table Header */}
           <div className="overflow-x-hidden">
             <table className="min-w-[1400px] w-full">
@@ -420,9 +450,9 @@ function App() {
               </thead>
             </table>
           </div>
-
+          
           {/* Table Body with BOTTOM Scroll Bar */}
-          <div
+          <div 
             ref={bottomScrollBarRef}
             className="overflow-x-auto"
           >
@@ -508,14 +538,14 @@ function App() {
               </tbody>
             </table>
           </div>
-
+          
           {/* Bottom scroll hint */}
           <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
             <ChevronLeft className="w-3 h-3" />
-            Scroll using the bar above or below
+            Use the scroll bar ABOVE or BELOW to scroll horizontally
             <ChevronRight className="w-3 h-3" />
           </div>
-
+          
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
@@ -524,10 +554,9 @@ function App() {
             </div>
           )}
         </div>
-
       </main>
 
-      {/* Add/Edit Member Modal */}
+      {/* Add/Edit Member Modal - Keep as is */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -541,58 +570,58 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
