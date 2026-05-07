@@ -3,58 +3,22 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   Users, Search, Plus, Edit2, Trash2, 
-  RefreshCw, Download, Church, Calendar, 
-  Phone, Mail, MapPin, Briefcase, Heart, 
-  GraduationCap, Home, Briefcase as WorkIcon,
-  Cake, Gift
+  RefreshCw, Download, Upload, Church, 
+  Phone, Mail, Briefcase, Heart, 
+  GraduationCap, Cake, Gift, Home, 
+  MapPin, Calendar, User, FileText, Upload as UploadIcon
 } from 'lucide-react';
 
-// Better API URL configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-// Configure axios defaults
-axios.defaults.timeout = 30000;
-
-// Add request interceptor for debugging
-axios.interceptors.request.use(
-  config => {
-    console.log(`📤 Making request to: ${config.url}`);
-    return config;
-  },
-  error => {
-    console.error('📤 Request error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for debugging
-axios.interceptors.response.use(
-  response => {
-    console.log(`📥 Response from: ${response.config.url}`, response.status);
-    return response;
-  },
-  error => {
-    console.error('📥 Response error:', error.response?.status, error.message);
-    if (error.code === 'ECONNABORTED') {
-      toast.error('Request timeout. Please check your connection.');
-    } else if (error.response?.status === 404) {
-      toast.error('Backend server not found. Please check if it\'s running.');
-    } else if (error.response?.status === 500) {
-      toast.error('Server error. Please try again later.');
-    } else if (!error.response) {
-      toast.error('Cannot connect to server. Please check your network.');
-    }
-    return Promise.reject(error);
-  }
-);
 
 function App() {
   const [members, setMembers] = useState([]);
-  const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [importData, setImportData] = useState('');
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', gender: '',
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
@@ -63,21 +27,12 @@ function App() {
   });
 
   useEffect(() => {
-    // Check backend health on startup
-    checkBackendHealth();
     fetchMembers();
   }, []);
 
-  const checkBackendHealth = async () => {
-    try {
-      const response = await axios.get(`${API_URL.replace('/api', '')}/api/health`);
-      console.log('✅ Backend is healthy:', response.data);
-      toast.success('Connected to server successfully');
-    } catch (error) {
-      console.error('❌ Backend health check failed:', error);
-      toast.error(`Cannot connect to backend server. Please ensure it's running at ${API_URL}`);
-    }
-  };
+  useEffect(() => {
+    // Search is handled in real-time
+  }, [searchTerm, members]);
 
   const fetchMembers = async () => {
     setIsLoading(true);
@@ -87,7 +42,7 @@ function App() {
       toast.success(`${response.data.length} members loaded`);
     } catch (error) {
       console.error('Error fetching members:', error);
-      toast.error('Error loading members. Make sure backend is running.');
+      toast.error('Error loading members');
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +50,6 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation
     if (!formData.firstName || !formData.lastName) {
       toast.error('First Name and Last Name are required');
       return;
@@ -115,7 +68,7 @@ function App() {
       setIsFormOpen(false);
     } catch (error) {
       console.error('Error saving member:', error);
-      toast.error('Error saving member: ' + (error.response?.data?.message || error.message));
+      toast.error('Error saving member');
     }
   };
 
@@ -152,24 +105,94 @@ function App() {
     setEditingMember(null);
   };
 
+  // Bulk Import Function
+  const handleBulkImport = () => {
+    try {
+      const rows = importData.trim().split('\n');
+      const membersToImport = [];
+      
+      // Skip header row if present
+      const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
+      
+      for (let i = startRow; i < rows.length; i++) {
+        const cols = rows[i].split(',').map(col => col.trim());
+        if (cols.length >= 2 && cols[0] && cols[1]) {
+          membersToImport.push({
+            firstName: cols[0],
+            lastName: cols[1],
+            email: cols[2] || '',
+            gender: cols[3] || '',
+            phoneNumber: cols[4] || '',
+            whatsappNumber: cols[5] || '',
+            dateOfBirth: cols[6] || '',
+            maritalStatus: cols[7] || '',
+            weddingAnniversary: cols[8] || '',
+            residentialAddress: cols[9] || '',
+            occupation: cols[10] || '',
+            completedFoundationClass: cols[11] === 'Yes' ? 'Yes' : 'No',
+            churchUnit: cols[12] || ''
+          });
+        }
+      }
+      
+      if (membersToImport.length === 0) {
+        toast.error('No valid members found to import');
+        return;
+      }
+      
+      // Import each member
+      Promise.all(membersToImport.map(member => 
+        axios.post(`${API_URL}/members`, member)
+      )).then(() => {
+        toast.success(`Successfully imported ${membersToImport.length} members`);
+        fetchMembers();
+        setImportData('');
+        setIsImportOpen(false);
+      }).catch(error => {
+        console.error('Import error:', error);
+        toast.error('Error importing members');
+      });
+      
+    } catch (error) {
+      console.error('Parse error:', error);
+      toast.error('Error parsing import data');
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImportData(event.target.result);
+    };
+    reader.readAsText(file);
+  };
+
   const exportToCSV = () => {
-    const headers = ['First Name', 'Last Name', 'Email', 'Gender', 'Phone', 'WhatsApp', 'DOB', 'Marital Status', 'Wedding Anniversary', 'Address', 'Occupation', 'Foundation Class', 'Church Unit'];
-    const csvData = filteredMembers.map(m => [
+    const headers = [
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
+      'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
+    ];
+    
+    const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
       m.email || '',
       m.gender || '',
       m.phoneNumber || '',
       m.whatsappNumber || '',
-      m.dateOfBirth?.split('T')[0] || '',
+      m.dateOfBirth || '',
       m.maritalStatus || '',
-      m.weddingAnniversary?.split('T')[0] || '',
+      m.weddingAnniversary || '',
       m.residentialAddress || '',
       m.occupation || '',
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-
+    
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -191,15 +214,22 @@ function App() {
   };
 
   const stats = getStats();
+  
+  // Filter members based on search
+  const filteredMembers = members.filter(member => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      member.firstName?.toLowerCase().includes(term) ||
+      member.lastName?.toLowerCase().includes(term) ||
+      member.phoneNumber?.includes(term) ||
+      member.churchUnit?.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <Toaster position="top-right" />
-
-            {/* Add connection status indicator */}
-      <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-md px-3 py-1 text-xs">
-        {isLoading ? '🔄 Connecting...' : '✅ Connected'}
-      </div>
 
       {/* Header */}
       <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
@@ -214,16 +244,22 @@ function App() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => { setIsFormOpen(true); resetForm(); }}
-                className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
+                onClick={() => { setIsImportOpen(true); resetForm(); }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
               >
-                <Plus className="w-5 h-5" /> Add Member
+                <Upload className="w-5 h-5" /> Bulk Import
               </button>
               <button
                 onClick={exportToCSV}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
               >
                 <Download className="w-5 h-5" /> Export CSV
+              </button>
+              <button
+                onClick={() => { setIsFormOpen(true); resetForm(); }}
+                className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
+              >
+                <Plus className="w-5 h-5" /> Add Member
               </button>
             </div>
           </div>
@@ -234,7 +270,7 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow-md p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm">Total Members</p>
@@ -243,7 +279,7 @@ function App() {
               <Users className="w-10 h-10 text-green-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow-md p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm">Foundation Class</p>
@@ -252,7 +288,7 @@ function App() {
               <GraduationCap className="w-10 h-10 text-green-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow-md p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm">Church Units</p>
@@ -261,7 +297,7 @@ function App() {
               <Briefcase className="w-10 h-10 text-green-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow-md p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm">Married Members</p>
@@ -294,87 +330,54 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table */}
+        {/* Members Table - Each field in its own column */}
         <div className="bg-white rounded-lg shadow-md overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-green-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">Personal Info</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">Church</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">First Name</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Last Name</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Email</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Gender</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Phone</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">WhatsApp</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Date of Birth</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Marital Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Wedding Anniversary</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Address</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Occupation</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Foundation Class</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Church Unit</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMembers.map((member) => (
                 <tr key={member._id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">
-                      {member.firstName} {member.lastName}
-                    </div>
-                    {member.dateOfBirth && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                        <Cake className="w-3 h-3" /> DOB: {new Date(member.dateOfBirth).toLocaleDateString()}
-                      </div>
-                    )}
+                  <td className="px-3 py-4 text-sm">{member.firstName || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.lastName || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.email || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.gender || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.phoneNumber || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.whatsappNumber || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.dateOfBirth || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.maritalStatus || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.weddingAnniversary || '-'}</td>
+                  <td className="px-3 py-4 text-sm max-w-xs truncate">{member.residentialAddress || '-'}</td>
+                  <td className="px-3 py-4 text-sm">{member.occupation || '-'}</td>
+                  <td className="px-3 py-4 text-sm">
+                    <span className={`px-2 py-1 text-xs rounded-full ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {member.completedFoundationClass === 'Yes' ? 'Completed' : 'Pending'}
+                    </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">
-                      {member.phoneNumber && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-4 h-4" /> {member.phoneNumber}
-                        </div>
-                      )}
-                      {member.whatsappNumber && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="text-green-600 text-xs">WhatsApp:</span> {member.whatsappNumber}
-                        </div>
-                      )}
-                      {member.email && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Mail className="w-4 h-4 text-xs" /> {member.email}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">
-                      {member.gender && <div>Gender: {member.gender}</div>}
-                      {member.maritalStatus && <div>Status: {member.maritalStatus}</div>}
-                      {member.weddingAnniversary && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Gift className="w-3 h-3" /> Anniversary: {new Date(member.weddingAnniversary).toLocaleDateString()}
-                        </div>
-                      )}
-                      {member.occupation && <div className="flex items-center gap-1 mt-1"><WorkIcon className="w-3 h-3" /> {member.occupation}</div>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">
-                      {member.churchUnit && <div className="font-medium text-green-700">📌 {member.churchUnit}</div>}
-                      <div className="mt-1">
-                        <span className={`px-2 py-1 text-xs rounded-full ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                          {member.completedFoundationClass === 'Yes' ? '✓ Foundation Completed' : 'Foundation Pending'}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4 text-sm">{member.churchUnit || '-'}</td>
+                  <td className="px-3 py-4">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(member)}
-                        className="text-blue-600 hover:text-blue-800 transition"
-                        title="Edit Member"
-                      >
-                        <Edit2 className="w-5 h-5" />
+                      <button onClick={() => handleEdit(member)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                        <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(member._id)}
-                        className="text-red-600 hover:text-red-800 transition"
-                        title="Delete Member"
-                      >
-                        <Trash2 className="w-5 h-5" />
+                      <button onClick={() => handleDelete(member._id)} className="text-red-600 hover:text-red-800" title="Delete">
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -392,7 +395,7 @@ function App() {
         </div>
       </main>
 
-      {/* Modal Form */}
+      {/* Add/Edit Member Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -400,117 +403,56 @@ function App() {
               <h2 className="text-2xl font-bold text-green-800">
                 {editingMember ? '✏️ Edit Member' : '➕ Add New Member'}
               </h2>
-              <button
-                onClick={() => { setIsFormOpen(false); resetForm(); }}
-                className="text-gray-500 hover:text-gray-700 text-3xl"
-              >
-                ×
-              </button>
+              <button onClick={() => { setIsFormOpen(false); resetForm(); }} className="text-gray-500 hover:text-gray-700 text-3xl">×</button>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Personal Information Section */}
-                <div className="md:col-span-2">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2">
-                    👤 Personal Information
-                  </h3>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" required />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
-                    <option value="">Select Gender</option>
-                    <option>Male</option>
-                    <option>Female</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                  <input type="tel" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
-                  <input type="tel" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date of Birth</label>
-                  <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                  <select value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
-                    <option value="">Select Status</option>
-                    <option>Single</option>
-                    <option>Married</option>
-                    <option>Divorced</option>
-                    <option>Widowed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">💍 Wedding Anniversary</label>
-                  <input type="date" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">🏠 Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">💼 Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
-
-                {/* Church Information Section */}
-                <div className="md:col-span-2">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3 border-b border-green-200 pb-2 mt-4">
-                    ⛪ Church Information
-                  </h3>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500">
-                    <option value="No">❌ Not Completed</option>
-                    <option value="Yes">✅ Completed</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare, Prayer Warriors" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500" />
-                </div>
+                <div><label className="block text-sm font-medium mb-1">First Name *</label><input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Last Name *</label><input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2" required /></div>
+                <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">Gender</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
+                <div><label className="block text-sm font-medium mb-1">Phone Number</label><input type="tel" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">WhatsApp Number</label><input type="tel" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">Date of Birth</label><input type="date" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">Marital Status</label><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2"><option value="">Select</option><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select></div>
+                <div><label className="block text-sm font-medium mb-1">Wedding Anniversary</label><input type="date" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div className="md:col-span-2"><label className="block text-sm font-medium mb-1">Residential Address</label><input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">Occupation</label><input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div><label className="block text-sm font-medium mb-1">Completed Foundation Class?</label><select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+                <div className="md:col-span-2"><label className="block text-sm font-medium mb-1">Church Unit</label><input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2" /></div>
               </div>
-
               <div className="flex gap-3 mt-6">
-                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">
-                  {editingMember ? '💾 Update Member' : '💾 Save Member'}
-                </button>
-                <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">
-                  Cancel
-                </button>
+                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700">{editingMember ? 'Update Member' : 'Save Member'}</button>
+                <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancel</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {isImportOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full">
+            <div className="border-b px-6 py-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-green-800">📤 Bulk Import Members</h2>
+              <button onClick={() => setIsImportOpen(false)} className="text-gray-500 hover:text-gray-700 text-3xl">×</button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Upload CSV File</label>
+                <input type="file" accept=".csv" onChange={handleFileUpload} className="w-full border rounded-lg p-2" />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Or Paste CSV Data</label>
+                <p className="text-xs text-gray-500 mb-2">Format: First Name, Last Name, Email, Gender, Phone, WhatsApp, DOB, Marital Status, Anniversary, Address, Occupation, Foundation Class (Yes/No), Church Unit</p>
+                <textarea rows="8" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder="John,Doe,john@email.com,Male,1234567890,1234567890,1990-01-01,Married,2015-06-01,123 Main St,Engineer,Yes,Choir" className="w-full border rounded-lg p-2 font-mono text-sm"></textarea>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleBulkImport} className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700">Import Members</button>
+                <button onClick={() => setIsImportOpen(false)} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancel</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
