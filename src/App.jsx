@@ -26,8 +26,8 @@ function App() {
   });
 
   // Refs for synchronized scrolling
-  const mainTableRef = useRef(null);
   const topScrollBarRef = useRef(null);
+  const bottomScrollBarRef = useRef(null);
 
   useEffect(() => {
     fetchMembers();
@@ -35,27 +35,31 @@ function App() {
 
   // Synchronize top and bottom scroll bars
   useEffect(() => {
-    const mainContainer = mainTableRef.current;
-    const topScrollBar = topScrollBarRef.current;
+    const topScroll = topScrollBarRef.current;
+    const bottomScroll = bottomScrollBarRef.current;
     
-    if (mainContainer && topScrollBar) {
-      const handleMainScroll = () => {
-        topScrollBar.scrollLeft = mainContainer.scrollLeft;
-      };
-      
+    if (topScroll && bottomScroll) {
       const handleTopScroll = () => {
-        mainContainer.scrollLeft = topScrollBar.scrollLeft;
+        if (bottomScroll.scrollLeft !== topScroll.scrollLeft) {
+          bottomScroll.scrollLeft = topScroll.scrollLeft;
+        }
       };
       
-      mainContainer.addEventListener('scroll', handleMainScroll);
-      topScrollBar.addEventListener('scroll', handleTopScroll);
+      const handleBottomScroll = () => {
+        if (topScroll.scrollLeft !== bottomScroll.scrollLeft) {
+          topScroll.scrollLeft = bottomScroll.scrollLeft;
+        }
+      };
+      
+      topScroll.addEventListener('scroll', handleTopScroll);
+      bottomScroll.addEventListener('scroll', handleBottomScroll);
       
       return () => {
-        mainContainer.removeEventListener('scroll', handleMainScroll);
-        topScrollBar.removeEventListener('scroll', handleTopScroll);
+        topScroll.removeEventListener('scroll', handleTopScroll);
+        bottomScroll.removeEventListener('scroll', handleBottomScroll);
       };
     }
-  }, [members]); // Re-run when members load to ensure scroll bar width is set
+  }, [members]);
 
   const fetchMembers = async () => {
     setIsLoading(true);
@@ -303,6 +307,12 @@ function App() {
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
+              <button
+                onClick={resetDatabase}
+                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
+              >
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+              </button>
             </div>
           </div>
         </div>
@@ -372,24 +382,23 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table - With Working Top Scroll Bar */}
+        {/* Members Table - With VISIBLE Top and Bottom Scroll Bars */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* Top Scroll Bar */}
-          <div 
-            ref={topScrollBarRef}
-            className="overflow-x-auto overflow-y-hidden bg-gray-100 border-b border-gray-200"
-            style={{ height: '12px' }}
-          >
-            <div className="h-full" style={{ width: '1400px' }}></div>
+          {/* TOP SCROLL BAR - Now fully visible */}
+          <div className="bg-gray-100 border-b border-gray-300 p-1">
+            <div className="text-xs text-gray-500 text-center mb-1">← Scroll here →</div>
+            <div 
+              ref={topScrollBarRef}
+              className="overflow-x-auto"
+            >
+              <div className="h-4" style={{ width: '1400px' }}></div>
+            </div>
           </div>
           
-          {/* Main Table with Horizontal Scroll */}
-          <div 
-            ref={mainTableRef}
-            className="overflow-x-auto"
-          >
+          {/* Table Header - Sticky */}
+          <div className="overflow-x-hidden">
             <table className="min-w-[1400px] w-full">
-              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
+              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
@@ -408,92 +417,102 @@ function App() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredMembers.map((member, index) => (
-                  <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
-                    <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.gender && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.gender}
-                        </span>
-                      )}
-                      {!member.gender && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.phoneNumber && (
-                        <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          <Phone className="w-3 h-3" /> {member.phoneNumber}
-                        </a>
-                      )}
-                      {!member.phoneNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.whatsappNumber && (
-                        <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          {member.whatsappNumber}
-                        </a>
-                      )}
-                      {!member.whatsappNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.maritalStatus && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.maritalStatus}
-                        </span>
-                      )}
-                      {!member.maritalStatus && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
-                      {member.residentialAddress || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
-                    <td className="px-4 py-3 text-sm border-r border-gray-200">
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.churchUnit && (
-                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                          {member.churchUnit}
-                        </span>
-                      )}
-                      {!member.churchUnit && '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(member)}
-                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit Member"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member._id)}
-                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                          title="Delete Member"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
             </table>
           </div>
+          
+          {/* Table Body with BOTTOM Scroll Bar */}
+          {/* Table Body with BOTTOM Scroll Bar */}
+<div 
+  ref={bottomScrollBarRef}
+  className="overflow-x-auto"
+>
+  <table className="min-w-[1400px] w-full">
+    <tbody className="divide-y divide-gray-200">
+      {filteredMembers.map((member, index) => (
+        <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
+          <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+          <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+          <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+            {member.gender && (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                {member.gender}
+              </span>
+            )}
+            {!member.gender && '-'}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+            {member.phoneNumber && (
+              <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                <Phone className="w-3 h-3" /> {member.phoneNumber}
+              </a>
+            )}
+            {!member.phoneNumber && '-'}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+            {member.whatsappNumber && (
+              <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                {member.whatsappNumber}
+              </a>
+            )}
+            {!member.whatsappNumber && '-'}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+            {member.maritalStatus && (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                {member.maritalStatus}
+              </span>
+            )}
+            {!member.maritalStatus && '-'}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+            {member.residentialAddress || '-'}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+          <td className="px-4 py-3 text-sm border-r border-gray-200">
+            <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+            </span>
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+            {member.churchUnit && (
+              <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                {member.churchUnit}
+              </span>
+            )}
+            {!member.churchUnit && '-'}
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleEdit(member)}
+                className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                title="Edit Member"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(member._id)}
+                className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                title="Delete Member"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
           
           {/* Bottom scroll hint */}
           <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
             <ChevronLeft className="w-3 h-3" />
-            Scroll horizontally to view all columns
+            Use the scroll bar above OR below to scroll horizontally
             <ChevronRight className="w-3 h-3" />
           </div>
           
