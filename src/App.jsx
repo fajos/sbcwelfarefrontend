@@ -5,7 +5,7 @@ import {
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
-  GraduationCap
+  GraduationCap, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -246,40 +246,40 @@ function App() {
       <Toaster position="top-right" />
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
-        <div className="container mx-auto px-4 py-6">
+      <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center space-x-3">
-              <Church className="w-10 h-10" />
+              <Church className="w-8 h-8 md:w-10 md:h-10" />
               <div>
-                <h1 className="text-2xl font-bold">C&S Saints Builder Church</h1>
-                <p className="text-green-200">Welfare Management System</p>
+                <h1 className="text-xl md:text-2xl font-bold">C&S Saints Builder Church</h1>
+                <p className="text-green-200 text-sm md:text-base">Welfare Management System</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 md:gap-3 flex-wrap">
               <button
                 onClick={() => { setIsImportOpen(true); resetForm(); }}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
+                className="bg-purple-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md text-sm md:text-base"
               >
-                <Upload className="w-5 h-5" /> Bulk Import
+                <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
               </button>
               <button
                 onClick={exportToCSV}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
+                className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md text-sm md:text-base"
               >
-                <Download className="w-5 h-5" /> Export CSV
+                <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
               </button>
               <button
                 onClick={() => { setIsFormOpen(true); resetForm(); }}
-                className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
+                className="bg-white text-green-800 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md text-sm md:text-base"
               >
-                <Plus className="w-5 h-5" /> Add Member
+                <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
               <button
                 onClick={resetDatabase}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md"
+                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
               >
-                <Trash2 className="w-5 h-5" /> Reset DB
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
               </button>
             </div>
           </div>
@@ -287,135 +287,193 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6 md:py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-green-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Total Members</p>
-                <p className="text-3xl font-bold text-green-800">{stats.total}</p>
+                <p className="text-gray-500 text-xs md:text-sm">Total Members</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.total}</p>
               </div>
-              <Users className="w-10 h-10 text-green-600 opacity-75" />
+              <Users className="w-8 h-8 md:w-10 md:h-10 text-green-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Foundation Class</p>
-                <p className="text-3xl font-bold text-green-800">{stats.foundationComplete}</p>
+                <p className="text-gray-500 text-xs md:text-sm">Foundation Class</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.foundationComplete}</p>
               </div>
-              <GraduationCap className="w-10 h-10 text-green-600 opacity-75" />
+              <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-blue-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-purple-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Church Units</p>
-                <p className="text-3xl font-bold text-green-800">{stats.uniqueUnits}</p>
+                <p className="text-gray-500 text-xs md:text-sm">Church Units</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.uniqueUnits}</p>
               </div>
-              <Briefcase className="w-10 h-10 text-green-600 opacity-75" />
+              <Briefcase className="w-8 h-8 md:w-10 md:h-10 text-purple-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-pink-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Married Members</p>
-                <p className="text-3xl font-bold text-green-800">{stats.married}</p>
+                <p className="text-gray-500 text-xs md:text-sm">Married Members</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.married}</p>
               </div>
-              <Heart className="w-10 h-10 text-green-600 opacity-75" />
+              <Heart className="w-8 h-8 md:w-10 md:h-10 text-pink-600 opacity-75" />
             </div>
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="bg-white rounded-lg shadow-md mb-6 p-4">
-          <div className="flex gap-4">
+          <div className="flex gap-3 md:gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
               <input
                 type="text"
                 placeholder="Search by name, phone number, or church unit..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base"
               />
             </div>
             <button
               onClick={fetchMembers}
-              className="bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition"
+              className="bg-gray-600 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition text-sm md:text-base"
             >
-              <RefreshCw className="w-5 h-5" /> Refresh
+              <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
             </button>
           </div>
         </div>
 
-        {/* Members Table - All fields as plain text */}
-        <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-green-50">
-              <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">First Name</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Last Name</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Email</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Gender</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Phone</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">WhatsApp</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Date of Birth</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Marital Status</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Wedding Anniversary</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Address</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Occupation</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Foundation Class</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Church Unit</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-green-800 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMembers.map((member) => (
-                <tr key={member._id} className="hover:bg-gray-50 transition">
-                  <td className="px-3 py-4 text-sm">{member.firstName || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.lastName || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.email || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.gender || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.phoneNumber || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.whatsappNumber || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.dateOfBirth || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.maritalStatus || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.weddingAnniversary || '-'}</td>
-                  <td className="px-3 py-4 text-sm max-w-xs truncate">{member.residentialAddress || '-'}</td>
-                  <td className="px-3 py-4 text-sm">{member.occupation || '-'}</td>
-                  <td className="px-3 py-4 text-sm">
-                    <span className={`px-2 py-1 text-xs rounded-full ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {member.completedFoundationClass === 'Yes' ? 'Completed' : 'Pending'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-4 text-sm">{member.churchUnit || '-'}</td>
-                  <td className="px-3 py-4">
-                    <div className="flex gap-2">
-                      <button onClick={() => handleEdit(member)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDelete(member._id)} className="text-red-600 hover:text-red-800" title="Delete">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+        {/* Members Table - With Top Scroll Bar and Better Design */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Horizontal scrollbar at top */}
+          <div className="overflow-x-auto overflow-y-hidden" style={{ direction: 'rtl' }}>
+            <div style={{ direction: 'ltr' }}>
+              <div className="h-3 bg-gray-100"></div>
+            </div>
+          </div>
+          
+          {/* Table with horizontal scroll */}
+          <div className="overflow-x-auto">
+            <table className="min-w-[1400px] w-full">
+              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredMembers.map((member, index) => (
+                  <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
+                    <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.gender && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {member.gender}
+                        </span>
+                      )}
+                      {!member.gender && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.phoneNumber && (
+                        <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                          <Phone className="w-3 h-3" /> {member.phoneNumber}
+                        </a>
+                      )}
+                      {!member.phoneNumber && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.whatsappNumber && (
+                        <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                          <Mail className="w-3 h-3" /> {member.whatsappNumber}
+                        </a>
+                      )}
+                      {!member.whatsappNumber && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.maritalStatus && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {member.maritalStatus}
+                        </span>
+                      )}
+                      {!member.maritalStatus && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+                      {member.residentialAddress || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+                    <td className="px-4 py-3 text-sm border-r border-gray-200">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.churchUnit && (
+                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                          {member.churchUnit}
+                        </span>
+                      )}
+                      {!member.churchUnit && '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(member)}
+                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                          title="Edit Member"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(member._id)}
+                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                          title="Delete Member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-              <p className="text-lg">No members found</p>
+              <p className="text-lg font-medium">No members found</p>
               <p className="text-sm">Click "Add Member" to get started.</p>
             </div>
           )}
         </div>
       </main>
 
-      {/* Add/Edit Member Modal - All fields as plain text inputs */}
+      {/* Add/Edit Member Modal - Keep as is */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -429,63 +487,63 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Any format" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Any format" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700">{editingMember ? 'Update Member' : 'Save Member'}</button>
-                <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancel</button>
+                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">{editingMember ? 'Update Member' : 'Save Member'}</button>
+                <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
               </div>
             </form>
           </div>
