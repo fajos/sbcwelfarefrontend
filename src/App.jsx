@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-// ... other imports
+import { 
+  Users, Search, Plus, Edit2, Trash2, 
+  RefreshCw, Download, Church, Calendar, 
+  Phone, Mail, MapPin, Briefcase, Heart, 
+  GraduationCap, Home, Briefcase as WorkIcon,
+  Cake, Gift
+} from 'lucide-react';
 
 // Better API URL configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
