@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
@@ -25,9 +25,37 @@ function App() {
     occupation: '', completedFoundationClass: 'No', churchUnit: ''
   });
 
+  // Refs for synchronized scrolling
+  const mainTableRef = useRef(null);
+  const topScrollBarRef = useRef(null);
+
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  // Synchronize top and bottom scroll bars
+  useEffect(() => {
+    const mainContainer = mainTableRef.current;
+    const topScrollBar = topScrollBarRef.current;
+    
+    if (mainContainer && topScrollBar) {
+      const handleMainScroll = () => {
+        topScrollBar.scrollLeft = mainContainer.scrollLeft;
+      };
+      
+      const handleTopScroll = () => {
+        mainContainer.scrollLeft = topScrollBar.scrollLeft;
+      };
+      
+      mainContainer.addEventListener('scroll', handleMainScroll);
+      topScrollBar.addEventListener('scroll', handleTopScroll);
+      
+      return () => {
+        mainContainer.removeEventListener('scroll', handleMainScroll);
+        topScrollBar.removeEventListener('scroll', handleTopScroll);
+      };
+    }
+  }, [members]); // Re-run when members load to ensure scroll bar width is set
 
   const fetchMembers = async () => {
     setIsLoading(true);
@@ -275,12 +303,6 @@ function App() {
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
-              <button
-                onClick={resetDatabase}
-                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
-              >
-                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
-              </button>
             </div>
           </div>
         </div>
@@ -350,19 +372,24 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table - With Top Scroll Bar and Better Design */}
+        {/* Members Table - With Working Top Scroll Bar */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* Horizontal scrollbar at top */}
-          <div className="overflow-x-auto overflow-y-hidden" style={{ direction: 'rtl' }}>
-            <div style={{ direction: 'ltr' }}>
-              <div className="h-3 bg-gray-100"></div>
-            </div>
+          {/* Top Scroll Bar */}
+          <div 
+            ref={topScrollBarRef}
+            className="overflow-x-auto overflow-y-hidden bg-gray-100 border-b border-gray-200"
+            style={{ height: '12px' }}
+          >
+            <div className="h-full" style={{ width: '1400px' }}></div>
           </div>
           
-          {/* Table with horizontal scroll */}
-          <div className="overflow-x-auto">
+          {/* Main Table with Horizontal Scroll */}
+          <div 
+            ref={mainTableRef}
+            className="overflow-x-auto"
+          >
             <table className="min-w-[1400px] w-full">
-              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0">
+              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
@@ -407,7 +434,7 @@ function App() {
                     <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
                       {member.whatsappNumber && (
                         <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          <Mail className="w-3 h-3" /> {member.whatsappNumber}
+                          {member.whatsappNumber}
                         </a>
                       )}
                       {!member.whatsappNumber && '-'}
@@ -463,6 +490,13 @@ function App() {
             </table>
           </div>
           
+          {/* Bottom scroll hint */}
+          <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
+            <ChevronLeft className="w-3 h-3" />
+            Scroll horizontally to view all columns
+            <ChevronRight className="w-3 h-3" />
+          </div>
+          
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
@@ -473,7 +507,7 @@ function App() {
         </div>
       </main>
 
-      {/* Add/Edit Member Modal - Keep as is */}
+      {/* Add/Edit Member Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
