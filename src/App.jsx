@@ -5,8 +5,7 @@ import {
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
-  GraduationCap, Cake, Gift, Home, 
-  MapPin, Calendar, User, FileText, Upload as UploadIcon
+  GraduationCap
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -29,10 +28,6 @@ function App() {
   useEffect(() => {
     fetchMembers();
   }, []);
-
-  useEffect(() => {
-    // Search is handled in real-time
-  }, [searchTerm, members]);
 
   const fetchMembers = async () => {
     setIsLoading(true);
@@ -75,9 +70,19 @@ function App() {
   const handleEdit = (member) => {
     setEditingMember(member);
     setFormData({
-      ...member,
-      dateOfBirth: member.dateOfBirth?.split('T')[0] || '',
-      weddingAnniversary: member.weddingAnniversary?.split('T')[0] || ''
+      firstName: member.firstName || '',
+      lastName: member.lastName || '',
+      email: member.email || '',
+      gender: member.gender || '',
+      phoneNumber: member.phoneNumber || '',
+      whatsappNumber: member.whatsappNumber || '',
+      dateOfBirth: member.dateOfBirth || '',
+      maritalStatus: member.maritalStatus || '',
+      weddingAnniversary: member.weddingAnniversary || '',
+      residentialAddress: member.residentialAddress || '',
+      occupation: member.occupation || '',
+      completedFoundationClass: member.completedFoundationClass || 'No',
+      churchUnit: member.churchUnit || ''
     });
     setIsFormOpen(true);
   };
@@ -105,13 +110,24 @@ function App() {
     setEditingMember(null);
   };
 
-  // Bulk Import Function
+  const resetDatabase = async () => {
+    if (window.confirm('⚠️ WARNING: This will delete ALL members. Are you absolutely sure?')) {
+      try {
+        await axios.delete(`${API_URL}/members`);
+        toast.success('Database cleared successfully');
+        fetchMembers();
+      } catch (error) {
+        console.error('Error clearing database:', error);
+        toast.error('Error clearing database');
+      }
+    }
+  };
+
   const handleBulkImport = () => {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
       
-      // Skip header row if present
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
       
       for (let i = startRow; i < rows.length; i++) {
@@ -140,7 +156,6 @@ function App() {
         return;
       }
       
-      // Import each member
       Promise.all(membersToImport.map(member => 
         axios.post(`${API_URL}/members`, member)
       )).then(() => {
@@ -204,20 +219,6 @@ function App() {
     toast.success('Export successful!');
   };
 
-  // Function to reset database (clear all members)
-const resetDatabase = async () => {
-  if (window.confirm('⚠️ WARNING: This will delete ALL members. Are you absolutely sure?')) {
-    try {
-      await axios.delete(`${API_URL}/members`);
-      toast.success('Database cleared successfully');
-      fetchMembers();
-    } catch (error) {
-      console.error('Error clearing database:', error);
-      toast.error('Error clearing database');
-    }
-  }
-};
-
   const getStats = () => {
     return {
       total: members.length,
@@ -229,7 +230,6 @@ const resetDatabase = async () => {
 
   const stats = getStats();
   
-  // Filter members based on search
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -246,45 +246,45 @@ const resetDatabase = async () => {
       <Toaster position="top-right" />
 
       {/* Header */}
-<header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
-  <div className="container mx-auto px-4 py-6">
-    <div className="flex items-center justify-between flex-wrap gap-4">
-      <div className="flex items-center space-x-3">
-        <Church className="w-10 h-10" />
-        <div>
-          <h1 className="text-2xl font-bold">C&S Saints Builder Church</h1>
-          <p className="text-green-200">Welfare Management System</p>
+      <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center space-x-3">
+              <Church className="w-10 h-10" />
+              <div>
+                <h1 className="text-2xl font-bold">C&S Saints Builder Church</h1>
+                <p className="text-green-200">Welfare Management System</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setIsImportOpen(true); resetForm(); }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
+              >
+                <Upload className="w-5 h-5" /> Bulk Import
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
+              >
+                <Download className="w-5 h-5" /> Export CSV
+              </button>
+              <button
+                onClick={() => { setIsFormOpen(true); resetForm(); }}
+                className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
+              >
+                <Plus className="w-5 h-5" /> Add Member
+              </button>
+              <button
+                onClick={resetDatabase}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md"
+              >
+                <Trash2 className="w-5 h-5" /> Reset DB
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="flex gap-3">
-        <button
-          onClick={() => { setIsImportOpen(true); resetForm(); }}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-        >
-          <Upload className="w-5 h-5" /> Bulk Import
-        </button>
-        <button
-          onClick={exportToCSV}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md"
-        >
-          <Download className="w-5 h-5" /> Export CSV
-        </button>
-        <button
-          onClick={() => { setIsFormOpen(true); resetForm(); }}
-          className="bg-white text-green-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md"
-        >
-          <Plus className="w-5 h-5" /> Add Member
-        </button>
-        <button
-          onClick={resetDatabase}
-          className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md"
-        >
-          <Trash2 className="w-5 h-5" /> Reset DB
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
+      </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -350,7 +350,7 @@ const resetDatabase = async () => {
           </div>
         </div>
 
-        {/* Members Table - Each field in its own column */}
+        {/* Members Table - All fields as plain text */}
         <div className="bg-white rounded-lg shadow-md overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-green-50">
@@ -415,7 +415,7 @@ const resetDatabase = async () => {
         </div>
       </main>
 
-      {/* Add/Edit Member Modal */}
+      {/* Add/Edit Member Modal - All fields as plain text inputs */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -427,19 +427,61 @@ const resetDatabase = async () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium mb-1">First Name *</label><input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Last Name *</label><input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2" required /></div>
-                <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Gender</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
-                <div><label className="block text-sm font-medium mb-1">Phone Number</label><input type="tel" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">WhatsApp Number</label><input type="tel" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Date of Birth</label><input type="date" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Marital Status</label><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2"><option value="">Select</option><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select></div>
-                <div><label className="block text-sm font-medium mb-1">Wedding Anniversary</label><input type="date" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium mb-1">Residential Address</label><input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Occupation</label><input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Completed Foundation Class?</label><select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2"><option value="No">No</option><option value="Yes">Yes</option></select></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium mb-1">Church Unit</label><input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2" /></div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">First Name *</label>
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Last Name *</label>
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Gender</label>
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Male/Female/Other" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone Number</label>
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date of Birth</label>
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Any format" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Marital Status</label>
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Single/Married/Divorced/Widowed" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2" placeholder="Any format" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Residential Address</label>
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Occupation</label>
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Church Unit</label>
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2" />
+                </div>
               </div>
               <div className="flex gap-3 mt-6">
                 <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700">{editingMember ? 'Update Member' : 'Save Member'}</button>
@@ -453,7 +495,7 @@ const resetDatabase = async () => {
       {/* Bulk Import Modal */}
       {isImportOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full">
+          <div className="bg-white rounded-lg max-w-3xl w-full">
             <div className="border-b px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-green-800">📤 Bulk Import Members</h2>
               <button onClick={() => setIsImportOpen(false)} className="text-gray-500 hover:text-gray-700 text-3xl">×</button>
@@ -466,7 +508,7 @@ const resetDatabase = async () => {
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Or Paste CSV Data</label>
                 <p className="text-xs text-gray-500 mb-2">Format: First Name, Last Name, Email, Gender, Phone, WhatsApp, DOB, Marital Status, Anniversary, Address, Occupation, Foundation Class (Yes/No), Church Unit</p>
-                <textarea rows="8" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder="John,Doe,john@email.com,Male,1234567890,1234567890,1990-01-01,Married,2015-06-01,123 Main St,Engineer,Yes,Choir" className="w-full border rounded-lg p-2 font-mono text-sm"></textarea>
+                <textarea rows="6" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder="John,Doe,john@email.com,Male,1234567890,1234567890,25th Dec 1990,Married,June 1st 2015,123 Main St,Engineer,Yes,Choir" className="w-full border rounded-lg p-2 font-mono text-sm"></textarea>
               </div>
               <div className="flex gap-3">
                 <button onClick={handleBulkImport} className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700">Import Members</button>
