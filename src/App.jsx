@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import { 
-  Users, Search, Plus, Edit2, Trash2, 
-  RefreshCw, Download, Upload, Church, 
-  Phone, Mail, Briefcase, Heart, 
+import {
+  Users, Search, Plus, Edit2, Trash2,
+  RefreshCw, Download, Upload, Church,
+  Phone, Mail, Briefcase, Heart,
   GraduationCap, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -41,34 +41,34 @@ function App() {
     if (cachedMembers) {
       setMembers(cachedMembers);
     }
-    
+
     // Fetch fresh data in background
     fetchMembers();
   }, []);
 
-  // Synchronize top and bottom scroll bars
-  useEffect(() => {
-    const topScroll = topScrollBarRef.current;
-    const bottomScroll = bottomScrollBarRef.current;
+ // Synchronize top and bottom scroll bars
+useEffect(() => {
+  const topScroll = topScrollBarRef.current;
+  const bottomScroll = bottomScrollBarRef.current;
+  
+  if (topScroll && bottomScroll) {
+    const syncTopToBottom = () => {
+      bottomScroll.scrollLeft = topScroll.scrollLeft;
+    };
     
-    if (topScroll && bottomScroll) {
-      const syncTopToBottom = () => {
-        bottomScroll.scrollLeft = topScroll.scrollLeft;
-      };
-      
-      const syncBottomToTop = () => {
-        topScroll.scrollLeft = bottomScroll.scrollLeft;
-      };
-      
-      topScroll.addEventListener('scroll', syncTopToBottom);
-      bottomScroll.addEventListener('scroll', syncBottomToTop);
-      
-      return () => {
-        topScroll.removeEventListener('scroll', syncTopToBottom);
-        bottomScroll.removeEventListener('scroll', syncBottomToTop);
-      };
-    }
-  }, [members]);
+    const syncBottomToTop = () => {
+      topScroll.scrollLeft = bottomScroll.scrollLeft;
+    };
+    
+    topScroll.addEventListener('scroll', syncTopToBottom);
+    bottomScroll.addEventListener('scroll', syncBottomToTop);
+    
+    return () => {
+      topScroll.removeEventListener('scroll', syncTopToBottom);
+      bottomScroll.removeEventListener('scroll', syncBottomToTop);
+    };
+  }
+}, [members]); // Re-run when members change
 
   const fetchMembers = async (forceRefresh = false) => {
     // Check cache first
@@ -78,7 +78,7 @@ function App() {
       setMembers(cachedMembers);
       return;
     }
-    
+
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
@@ -185,9 +185,9 @@ function App() {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-      
+
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-      
+
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -208,13 +208,13 @@ function App() {
           });
         }
       }
-      
+
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-      
-      Promise.all(membersToImport.map(member => 
+
+      Promise.all(membersToImport.map(member =>
         axios.post(`${API_URL}/members`, member)
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
@@ -226,7 +226,7 @@ function App() {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-      
+
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -236,7 +236,7 @@ function App() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -246,11 +246,11 @@ function App() {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-    
+
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -266,7 +266,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-    
+
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -288,7 +288,7 @@ function App() {
   };
 
   const stats = getStats();
-  
+
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -410,53 +410,47 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table - With Working Top Scroll Bar */}
+        {/* Members Table - With Scrollable Header */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          
-          {/* TOP SCROLL BAR - Now with visible scroll thumb */}
+
+          {/* TOP SCROLL BAR - Controls both header and body */}
           <div className="bg-gray-100 border-b border-gray-300 p-2">
-            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally using the bar below →</div>
-            <div 
+            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally →</div>
+            <div
               ref={topScrollBarRef}
               className="overflow-x-auto"
               style={{ scrollbarWidth: 'thin' }}
             >
-              {/* This creates the scrollable area */}
               <div style={{ width: '1400px', height: '1px' }}></div>
             </div>
           </div>
-          
-          {/* Table Header */}
-          <div className="overflow-x-hidden">
-            <table className="min-w-[1400px] w-full">
-              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-          
-          {/* Table Body with BOTTOM Scroll Bar */}
-          <div 
+
+          {/* Scrollable Table Container - Header and Body scroll together */}
+          <div
             ref={bottomScrollBarRef}
             className="overflow-x-auto"
           >
             <table className="min-w-[1400px] w-full">
+              {/* Table Header - Now scrolls with the body */}
+              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">First Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Last Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Gender</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">WhatsApp</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Date of Birth</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Marital Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Wedding Anniversary</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Occupation</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Foundation Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Church Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky top-0">Actions</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredMembers.map((member, index) => (
                   <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
@@ -538,14 +532,14 @@ function App() {
               </tbody>
             </table>
           </div>
-          
-          {/* Bottom Hint */}
-  <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
-    <ChevronLeft className="w-3 h-3" />
-    Use the scroll bar ABOVE or BELOW to scroll horizontally
-    <ChevronRight className="w-3 h-3" />
-  </div>
-          
+
+          {/* Bottom scroll hint */}
+          <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
+            <ChevronLeft className="w-3 h-3" />
+            Use the scroll bar ABOVE or drag the table to scroll horizontally
+            <ChevronRight className="w-3 h-3" />
+          </div>
+
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
@@ -570,58 +564,58 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
