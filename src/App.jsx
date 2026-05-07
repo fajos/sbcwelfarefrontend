@@ -46,29 +46,36 @@ function App() {
     fetchMembers();
   }, []);
 
- // Synchronize top and bottom scroll bars
+// Synchronize top and bottom scroll bars
 useEffect(() => {
   const topScroll = topScrollBarRef.current;
   const bottomScroll = bottomScrollBarRef.current;
   
   if (topScroll && bottomScroll) {
-    const syncTopToBottom = () => {
-      bottomScroll.scrollLeft = topScroll.scrollLeft;
+    // Sync top scroll to bottom
+    const handleTopScroll = () => {
+      if (bottomScroll.scrollLeft !== topScroll.scrollLeft) {
+        bottomScroll.scrollLeft = topScroll.scrollLeft;
+      }
     };
     
-    const syncBottomToTop = () => {
-      topScroll.scrollLeft = bottomScroll.scrollLeft;
+    // Sync bottom scroll to top
+    const handleBottomScroll = () => {
+      if (topScroll.scrollLeft !== bottomScroll.scrollLeft) {
+        topScroll.scrollLeft = bottomScroll.scrollLeft;
+      }
     };
     
-    topScroll.addEventListener('scroll', syncTopToBottom);
-    bottomScroll.addEventListener('scroll', syncBottomToTop);
+    topScroll.addEventListener('scroll', handleTopScroll);
+    bottomScroll.addEventListener('scroll', handleBottomScroll);
     
+    // Clean up
     return () => {
-      topScroll.removeEventListener('scroll', syncTopToBottom);
-      bottomScroll.removeEventListener('scroll', syncBottomToTop);
+      topScroll.removeEventListener('scroll', handleTopScroll);
+      bottomScroll.removeEventListener('scroll', handleBottomScroll);
     };
   }
-}, [members]); // Re-run when members change
+}, [members]); // Re-run when members change to ensure scroll bars are properly sized
 
   const fetchMembers = async (forceRefresh = false) => {
     // Check cache first
@@ -410,144 +417,144 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Members Table - With Scrollable Header */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-
-          {/* TOP SCROLL BAR - Controls both header and body */}
-          <div className="bg-gray-100 border-b border-gray-300 p-2">
-            <div className="text-xs text-gray-500 text-center mb-1">← Scroll horizontally →</div>
-            <div
-              ref={topScrollBarRef}
-              className="overflow-x-auto"
-              style={{ scrollbarWidth: 'thin' }}
-            >
-              <div style={{ width: '1400px', height: '1px' }}></div>
-            </div>
-          </div>
-
-          {/* Scrollable Table Container - Header and Body scroll together */}
-          <div
-            ref={bottomScrollBarRef}
-            className="overflow-x-auto"
-          >
-            <table className="min-w-[1400px] w-full">
-              {/* Table Header - Now scrolls with the body */}
-              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">First Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Last Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Gender</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">WhatsApp</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Date of Birth</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Marital Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Wedding Anniversary</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Occupation</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Foundation Class</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600 sticky top-0">Church Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky top-0">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredMembers.map((member, index) => (
-                  <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
-                    <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.gender && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.gender}
-                        </span>
-                      )}
-                      {!member.gender && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.phoneNumber && (
-                        <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          <Phone className="w-3 h-3" /> {member.phoneNumber}
-                        </a>
-                      )}
-                      {!member.phoneNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.whatsappNumber && (
-                        <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          {member.whatsappNumber}
-                        </a>
-                      )}
-                      {!member.whatsappNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.maritalStatus && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.maritalStatus}
-                        </span>
-                      )}
-                      {!member.maritalStatus && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
-                      {member.residentialAddress || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
-                    <td className="px-4 py-3 text-sm border-r border-gray-200">
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.churchUnit && (
-                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                          {member.churchUnit}
-                        </span>
-                      )}
-                      {!member.churchUnit && '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(member)}
-                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit Member"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member._id)}
-                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                          title="Delete Member"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Bottom scroll hint */}
-          <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
-            <ChevronLeft className="w-3 h-3" />
-            Use the scroll bar ABOVE or drag the table to scroll horizontally
-            <ChevronRight className="w-3 h-3" />
-          </div>
-
-          {filteredMembers.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-              <p className="text-lg font-medium">No members found</p>
-              <p className="text-sm">Click "Add Member" to get started.</p>
-            </div>
-          )}
-        </div>
+       {/* Members Table - Simple working dual scroll bars */}
+<div className="bg-white rounded-lg shadow-md overflow-hidden">
+  
+  {/* TOP SCROLL BAR - Creates a scroll bar above the table */}
+  <div className="bg-gray-50 border-b border-gray-200">
+    <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
+    <div 
+      ref={topScrollBarRef}
+      className="overflow-x-auto"
+    >
+      {/* This invisible div forces the scroll bar to appear */}
+      <div style={{ width: '1400px', height: '10px' }}></div>
+    </div>
+  </div>
+  
+  {/* MAIN TABLE CONTAINER - Bottom scroll bar */}
+  <div 
+    ref={bottomScrollBarRef}
+    className="overflow-x-auto"
+  >
+    <table className="min-w-[1400px] w-full">
+      {/* Table Header */}
+      <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
+        <tr>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-200">
+        {filteredMembers.map((member, index) => (
+          <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
+            <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+            <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+              {member.gender && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                  {member.gender}
+                </span>
+              )}
+              {!member.gender && '-'}
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+              {member.phoneNumber && (
+                <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                  <Phone className="w-3 h-3" /> {member.phoneNumber}
+                </a>
+              )}
+              {!member.phoneNumber && '-'}
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+              {member.whatsappNumber && (
+                <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                  {member.whatsappNumber}
+                </a>
+              )}
+              {!member.whatsappNumber && '-'}
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+              {member.maritalStatus && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                  {member.maritalStatus}
+                </span>
+              )}
+              {!member.maritalStatus && '-'}
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+              {member.residentialAddress || '-'}
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+            <td className="px-4 py-3 text-sm border-r border-gray-200">
+              <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+              </span>
+            </td>
+            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+              {member.churchUnit && (
+                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                  {member.churchUnit}
+                </span>
+              )}
+              {!member.churchUnit && '-'}
+            </td>
+            <td className="px-4 py-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(member)}
+                  className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                  title="Edit Member"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(member._id)}
+                  className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                  title="Delete Member"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  
+  {/* Scroll indicator */}
+  <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
+    <ChevronLeft className="w-3 h-3" />
+    Scroll using the bar above or below
+    <ChevronRight className="w-3 h-3" />
+  </div>
+  
+  {filteredMembers.length === 0 && (
+    <div className="text-center py-12 text-gray-500">
+      <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+      <p className="text-lg font-medium">No members found</p>
+      <p className="text-sm">Click "Add Member" to get started.</p>
+    </div>
+  )}
+</div>
       </main>
 
       {/* Add/Edit Member Modal - Keep as is */}
