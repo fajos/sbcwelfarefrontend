@@ -53,6 +53,8 @@ function App() {
     occupation: '', completedFoundationClass: 'No', churchUnit: ''
   });
 
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
 
@@ -602,6 +604,15 @@ function App() {
               >
                 <LogOut className="w-4 h-4 md:w-5 md:h-5" /> Logout
               </button>
+
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setShowAdminDashboard(true)}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                >
+                  <Shield className="w-4 h-4 md:w-5 md:h-5" /> Admin Panel
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1022,6 +1033,10 @@ function App() {
           </div>
         </div>
       )}
+
+       {showAdminDashboard && (
+                <AdminDashboard onBack={() => setShowAdminDashboard(false)} />
+              )}
     </div>
   );
 }
