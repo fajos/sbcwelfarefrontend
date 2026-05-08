@@ -132,12 +132,6 @@ function Login({ onLogin }) {
         
         {/* Demo Credentials */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-500 text-center mb-2">Demo Credentials:</p>
-          <div className="flex justify-center gap-4 text-xs">
-            <div>
-              <span className="font-semibold">Admin:</span> admin / admin123
-            </div>
-          </div>
           <p className="text-xs text-gray-400 text-center mt-2">
             Contact system administrator for access
           </p>
