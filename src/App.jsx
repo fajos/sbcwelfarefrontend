@@ -447,19 +447,16 @@ function App() {
       <header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
+            {/* Church Logo - Larger size */}
             <div className="flex items-center space-x-3">
-              {/* Actual Church Logo Image */}
               <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
-                <img
-                  src={churchLogo}
-                  alt="C&S Saints Builder Church Logo"
-                  className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-full"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center"><span class="text-blue-900 font-bold text-xl">⛪</span></div>';
-                  }}
-                />
+                <div className="w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden bg-white">
+                  <img
+                    src={churchLogo}
+                    alt="C&S Saints Builder Church Logo"
+                    className="w-full h-full object-cover scale-110"
+                  />
+                </div>
               </div>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
