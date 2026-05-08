@@ -7,7 +7,7 @@ import {
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
+  Cake, Gift, Calendar as CalendarIcon, LogOut
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -21,6 +21,12 @@ const getAuthHeaders = () => {
     }
   };
 };
+
+// Set default authorization header if token exists
+const token = localStorage.getItem('welfare_token');
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 // Cache configuration
 let cachedMembers = null;
@@ -50,44 +56,80 @@ function App() {
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
 
-  // Check authentication on mount
+  // Check authentication and load data on mount
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const token = localStorage.getItem('welfare_token');
-    const user = JSON.parse(localStorage.getItem('welfare_user') || 'null');
-    
-    if (token && user) {
-      try {
-        // Verify token with backend
-        const response = await axios.get(`${API_URL}/auth/verify`, getAuthHeaders());
-        if (response.data.valid) {
-          setIsAuthenticated(true);
-          setCurrentUser(user);
-          setUserRole(user.role);
-          fetchMembers();
-        } else {
+    const checkAndLoad = async () => {
+      const storedToken = localStorage.getItem('welfare_token');
+      const storedUser = localStorage.getItem('welfare_user');
+      
+      if (storedToken && storedUser) {
+        try {
+          // Set the token in axios defaults
+          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          
+          // Verify token
+          const response = await axios.get(`${API_URL}/auth/verify`, getAuthHeaders());
+          if (response.data.valid) {
+            const user = JSON.parse(storedUser);
+            setIsAuthenticated(true);
+            setCurrentUser(user);
+            setUserRole(user.role);
+            // Load data immediately after successful auth
+            await loadMembersData();
+          } else {
+            handleLogout();
+          }
+        } catch (error) {
+          console.error('Auth check failed:', error);
           handleLogout();
         }
-      } catch (error) {
-        console.error('Token verification failed:', error);
+      }
+    };
+    
+    checkAndLoad();
+  }, []);
+
+  const loadMembersData = async (forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
+      setMembers(cachedMembers);
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${API_URL}/members`, getAuthHeaders());
+      cachedMembers = response.data;
+      lastFetchTime = now;
+      setMembers(response.data);
+      if (response.data.length > 0) {
+        toast.success(`${response.data.length} members loaded`);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      if (error.response?.status === 401) {
         handleLogout();
       }
+      toast.error('Error loading members');
+      return [];
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLogin = (user) => {
+  const handleLogin = async (user) => {
     setIsAuthenticated(true);
     setCurrentUser(user);
     setUserRole(user.role);
-    fetchMembers();
+    // Load data immediately after login
+    await loadMembersData(true);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('welfare_token');
     localStorage.removeItem('welfare_user');
+    delete axios.defaults.headers.common['Authorization'];
     setIsAuthenticated(false);
     setCurrentUser(null);
     setUserRole(null);
@@ -233,35 +275,6 @@ function App() {
     }
   }, [members]);
 
-  const fetchMembers = async (forceRefresh = false) => {
-    if (!isAuthenticated) return;
-    
-    const now = Date.now();
-    if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
-      setMembers(cachedMembers);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`${API_URL}/members`, getAuthHeaders());
-      cachedMembers = response.data;
-      lastFetchTime = now;
-      setMembers(response.data);
-      toast.success(`${response.data.length} members loaded`);
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      if (error.response?.status === 401) {
-        handleLogout();
-      }
-      if (!cachedMembers) {
-        toast.error('Error loading members');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.firstName || !formData.lastName) {
@@ -278,7 +291,7 @@ function App() {
         toast.success('Member added successfully');
       }
       cachedMembers = null;
-      await fetchMembers(true);
+      await loadMembersData(true);
       resetForm();
       setIsFormOpen(false);
     } catch (error) {
@@ -328,7 +341,7 @@ function App() {
         await axios.delete(`${API_URL}/members/${id}`, getAuthHeaders());
         toast.success('Member deleted successfully');
         cachedMembers = null;
-        await fetchMembers(true);
+        await loadMembersData(true);
       } catch (error) {
         console.error('Error deleting member:', error);
         if (error.response?.status === 401) {
@@ -361,7 +374,7 @@ function App() {
         await axios.delete(`${API_URL}/members`, getAuthHeaders());
         toast.success('Database cleared successfully');
         cachedMembers = null;
-        await fetchMembers(true);
+        await loadMembersData(true);
       } catch (error) {
         console.error('Error clearing database:', error);
         if (error.response?.status === 401) {
@@ -416,7 +429,7 @@ function App() {
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
         cachedMembers = null;
-        await fetchMembers(true);
+        await loadMembersData(true);
         setImportData('');
         setIsImportOpen(false);
       }).catch(error => {
@@ -539,15 +552,17 @@ function App() {
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                   C&S Saints Builder Church
                 </h1>
-                <p className="text-yellow-200 text-sm md:text-base flex items-center gap-2">
-                  Welfare Management System
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-yellow-200 text-sm md:text-base">
+                    Welfare Management System
+                  </p>
                   {userRole === 'admin' && (
                     <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Admin</span>
                   )}
                   {userRole === 'editor' && (
                     <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">Editor</span>
                   )}
-                </p>
+                </div>
               </div>
             </div>
             <div className="flex gap-2 md:gap-3 flex-wrap">
@@ -600,6 +615,7 @@ function App() {
           <p className="text-gray-700">
             Welcome, <span className="font-semibold">{currentUser?.username}</span>! 
             You are logged in as <span className="font-semibold text-purple-600">{userRole}</span>.
+            {members.length > 0 && <span className="ml-2 text-gray-500">({members.length} members loaded)</span>}
           </p>
         </div>
         
@@ -736,7 +752,7 @@ function App() {
         </div>
 
         {/* Loading Indicator */}
-        {isLoading && !cachedMembers && (
+        {isLoading && members.length === 0 && (
           <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg mb-4 text-center">
             Loading members from database...
           </div>
@@ -756,7 +772,7 @@ function App() {
               />
             </div>
             <button
-              onClick={() => fetchMembers(true)}
+              onClick={() => loadMembersData(true)}
               className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition text-sm md:text-base"
             >
               <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
@@ -886,11 +902,18 @@ function App() {
             </table>
           </div>
           
-          {filteredMembers.length === 0 && (
+          {filteredMembers.length === 0 && !isLoading && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
               <p className="text-lg font-medium">No members found</p>
               <p className="text-sm">Click "Add Member" to get started.</p>
+            </div>
+          )}
+          
+          {filteredMembers.length === 0 && isLoading && (
+            <div className="text-center py-12 text-gray-500">
+              <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+              <p className="text-lg font-medium">Loading members...</p>
             </div>
           )}
         </div>
