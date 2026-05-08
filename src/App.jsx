@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import { 
-  Users, Search, Plus, Edit2, Trash2, 
-  RefreshCw, Download, Upload, Church, 
-  Phone, Mail, Briefcase, Heart, 
+import {
+  Users, Search, Plus, Edit2, Trash2,
+  RefreshCw, Download, Upload, Church,
+  Phone, Mail, Briefcase, Heart,
   GraduationCap, ChevronLeft, ChevronRight,
   Cake, Gift, Calendar as CalendarIcon
 } from 'lucide-react';
@@ -40,7 +40,7 @@ function App() {
   // Helper function to extract month and day from date string
   const extractMonthDay = (dateString) => {
     if (!dateString || dateString === '-') return null;
-    
+
     // Try to parse various date formats
     const patterns = [
       // Month Day, Year (e.g., "December 25, 1990" or "Dec 25, 1990")
@@ -50,7 +50,7 @@ function App() {
       // Day Month (e.g., "25 December" or "25 Dec")
       { regex: /(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i }
     ];
-    
+
     for (const pattern of patterns) {
       const match = dateString.match(pattern.regex);
       if (match) {
@@ -97,22 +97,22 @@ function App() {
   const calculateUpcomingEvents = (membersList) => {
     const today = new Date();
     const currentYear = today.getFullYear();
-    
+
     const birthdays = [];
     const anniversaries = [];
-    
+
     // Calculate days until a given month/day
     const daysUntil = (targetMonth, targetDay) => {
       const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
       const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
-      
+
       if (targetDateThisYear > today) {
         return Math.ceil((targetDateThisYear - today) / (1000 * 60 * 60 * 24));
       } else {
         return Math.ceil((targetDateNextYear - today) / (1000 * 60 * 60 * 24));
       }
     };
-    
+
     membersList.forEach(member => {
       // Process birthday
       if (member.dateOfBirth && member.dateOfBirth !== '-') {
@@ -129,7 +129,7 @@ function App() {
           }
         }
       }
-      
+
       // Process wedding anniversary
       if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
         const anniversaryDate = extractMonthDay(member.weddingAnniversary);
@@ -146,11 +146,11 @@ function App() {
         }
       }
     });
-    
+
     // Sort by days until event
     birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
     anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
-    
+
     setUpcomingBirthdays(birthdays);
     setUpcomingAnniversaries(anniversaries);
   };
@@ -173,19 +173,19 @@ function App() {
   useEffect(() => {
     const topScroll = topScrollBarRef.current;
     const bottomScroll = bottomScrollBarRef.current;
-    
+
     if (topScroll && bottomScroll) {
       const syncTopToBottom = () => {
         bottomScroll.scrollLeft = topScroll.scrollLeft;
       };
-      
+
       const syncBottomToTop = () => {
         topScroll.scrollLeft = bottomScroll.scrollLeft;
       };
-      
+
       topScroll.addEventListener('scroll', syncTopToBottom);
       bottomScroll.addEventListener('scroll', syncBottomToTop);
-      
+
       return () => {
         topScroll.removeEventListener('scroll', syncTopToBottom);
         bottomScroll.removeEventListener('scroll', syncBottomToTop);
@@ -199,7 +199,7 @@ function App() {
       setMembers(cachedMembers);
       return;
     }
-    
+
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
@@ -304,9 +304,9 @@ function App() {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-      
+
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-      
+
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -327,13 +327,13 @@ function App() {
           });
         }
       }
-      
+
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-      
-      Promise.all(membersToImport.map(member => 
+
+      Promise.all(membersToImport.map(member =>
         axios.post(`${API_URL}/members`, member)
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
@@ -345,7 +345,7 @@ function App() {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-      
+
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -355,7 +355,7 @@ function App() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -365,11 +365,11 @@ function App() {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-    
+
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -385,7 +385,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-    
+
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -407,7 +407,7 @@ function App() {
   };
 
   const stats = getStats();
-  
+
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -432,63 +432,63 @@ function App() {
       <Toaster position="top-right" />
 
       {/* Header - Church Colors: Blue, Purple, Gold with Actual Logo */}
-<header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
-  <div className="container mx-auto px-4 py-4">
-    <div className="flex items-center justify-between flex-wrap gap-4">
-      <div className="flex items-center space-x-3">
-        {/* Actual Church Logo Image */}
-        <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
-          <img 
-            src="/src/assets/church-logo.png" 
-            alt="C&S Saints Builder Church Logo" 
-            className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-full"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.style.display = 'none';
-              e.target.parentElement.innerHTML = '<div class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center"><span class="text-blue-900 font-bold text-xl">⛪</span></div>';
-            }}
-          />
+      <header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center space-x-3">
+              {/* Actual Church Logo Image */}
+              <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
+                <img
+                  src="/src/assets/church-logo.png"
+                  alt="C&S Saints Builder Church Logo"
+                  className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-full"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center"><span class="text-blue-900 font-bold text-xl">⛪</span></div>';
+                  }}
+                />
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                  C&S Saints Builder Church
+                </h1>
+                <p className="text-yellow-200 text-sm md:text-base">Welfare Management System</p>
+              </div>
+            </div>
+            <div className="flex gap-2 md:gap-3 flex-wrap">
+              <button
+                onClick={() => { setIsImportOpen(true); resetForm(); }}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
+              >
+                <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
+              >
+                <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
+              </button>
+              <button
+                onClick={() => { setIsFormOpen(true); resetForm(); }}
+                className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+              >
+                <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
+              </button>
+              <button
+                onClick={resetDatabase}
+                className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
+              >
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-            C&S Saints Builder Church
-          </h1>
-          <p className="text-yellow-200 text-sm md:text-base">Welfare Management System</p>
-        </div>
-      </div>
-      <div className="flex gap-2 md:gap-3 flex-wrap">
-        <button
-          onClick={() => { setIsImportOpen(true); resetForm(); }}
-          className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
-        >
-          <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
-        </button>
-        <button
-          onClick={exportToCSV}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
-        >
-          <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
-        </button>
-        <button
-          onClick={() => { setIsFormOpen(true); resetForm(); }}
-          className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
-        >
-          <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
-        </button>
-        <button
-          onClick={resetDatabase}
-          className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
-        >
-          <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
+      </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
-        
+
         {/* Upcoming Events Section - Church Colors */}
         {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
           <div className="mb-8">
@@ -496,7 +496,7 @@ function App() {
               <CalendarIcon className="w-6 h-6 text-purple-600" />
               Upcoming Celebrations (Next 30 Days)
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Upcoming Birthdays */}
               {upcomingBirthdays.length > 0 && (
@@ -538,7 +538,7 @@ function App() {
                   </div>
                 </div>
               )}
-              
+
               {/* Upcoming Anniversaries */}
               {upcomingAnniversaries.length > 0 && (
                 <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
@@ -657,16 +657,16 @@ function App() {
           {/* TOP SCROLL BAR */}
           <div className="bg-gray-50 border-b border-gray-200">
             <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
-            <div 
+            <div
               ref={topScrollBarRef}
               className="overflow-x-auto"
             >
               <div style={{ width: '1400px', height: '10px' }}></div>
             </div>
           </div>
-          
+
           {/* MAIN TABLE CONTAINER */}
-          <div 
+          <div
             ref={bottomScrollBarRef}
             className="overflow-x-auto"
           >
@@ -771,7 +771,7 @@ function App() {
               </tbody>
             </table>
           </div>
-          
+
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
@@ -796,58 +796,58 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1 text-blue-800">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1 text-blue-800">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
