@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import {
-  Users, Search, Plus, Edit2, Trash2,
-  RefreshCw, Download, Upload, Church,
-  Phone, Mail, Briefcase, Heart,
-  GraduationCap, ChevronLeft, ChevronRight
+import { 
+  Users, Search, Plus, Edit2, Trash2, 
+  RefreshCw, Download, Upload, Church, 
+  Phone, Mail, Briefcase, Heart, 
+  GraduationCap, ChevronLeft, ChevronRight,
+  Cake, Gift, Calendar as CalendarIcon
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -23,6 +24,8 @@ function App() {
   const [editingMember, setEditingMember] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState('');
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
+  const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', gender: '',
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
@@ -33,59 +36,172 @@ function App() {
   // Refs for synchronized scrolling
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
-  const tableContainerRef = useRef(null);
+
+  // Helper function to extract month and day from date string
+  const extractMonthDay = (dateString) => {
+    if (!dateString || dateString === '-') return null;
+    
+    // Try to parse various date formats
+    const patterns = [
+      // Month Day, Year (e.g., "December 25, 1990" or "Dec 25, 1990")
+      { regex: /(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(?:\d{4})?/i },
+      // Month/Day (e.g., "12/25" or "12/25/1990")
+      { regex: /(\d{1,2})\/(\d{1,2})(?:\/\d{4})?/ },
+      // Day Month (e.g., "25 December" or "25 Dec")
+      { regex: /(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i }
+    ];
+    
+    for (const pattern of patterns) {
+      const match = dateString.match(pattern.regex);
+      if (match) {
+        if (pattern.regex.toString().includes('january')) {
+          // Month name format
+          const monthMap = {
+            january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
+            april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+            august: 7, aug: 7, september: 8, sep: 8, october: 9, oct: 9,
+            november: 10, nov: 10, december: 11, dec: 11
+          };
+          const month = monthMap[match[1].toLowerCase()];
+          const day = parseInt(match[2]);
+          if (month !== undefined && day >= 1 && day <= 31) {
+            return { month, day };
+          }
+        } else if (pattern.regex.toString().includes('/')) {
+          // Month/Day format
+          const month = parseInt(match[1]) - 1;
+          const day = parseInt(match[2]);
+          if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+            return { month, day };
+          }
+        } else if (pattern.regex.toString().includes('st|nd|rd|th')) {
+          // Day Month format
+          const day = parseInt(match[1]);
+          const monthMap = {
+            january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
+            april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+            august: 7, aug: 7, september: 8, sep: 8, october: 9, oct: 9,
+            november: 10, nov: 10, december: 11, dec: 11
+          };
+          const month = monthMap[match[2].toLowerCase()];
+          if (month !== undefined && day >= 1 && day <= 31) {
+            return { month, day };
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // Calculate upcoming birthdays and anniversaries
+  const calculateUpcomingEvents = (membersList) => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const todayDay = today.getDate();
+    
+    const birthdays = [];
+    const anniversaries = [];
+    
+    // Calculate days until a given month/day
+    const daysUntil = (targetMonth, targetDay) => {
+      const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
+      const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
+      
+      if (targetDateThisYear > today) {
+        return Math.ceil((targetDateThisYear - today) / (1000 * 60 * 60 * 24));
+      } else {
+        return Math.ceil((targetDateNextYear - today) / (1000 * 60 * 60 * 24));
+      }
+    };
+    
+    membersList.forEach(member => {
+      // Process birthday
+      if (member.dateOfBirth && member.dateOfBirth !== '-') {
+        const birthDate = extractMonthDay(member.dateOfBirth);
+        if (birthDate) {
+          const days = daysUntil(birthDate.month, birthDate.day);
+          if (days <= 60) { // Show upcoming events within 60 days
+            birthdays.push({
+              ...member,
+              eventDate: `${birthDate.month + 1}/${birthDate.day}`,
+              daysUntil: days,
+              type: 'birthday'
+            });
+          }
+        }
+      }
+      
+      // Process wedding anniversary
+      if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
+        const anniversaryDate = extractMonthDay(member.weddingAnniversary);
+        if (anniversaryDate) {
+          const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
+          if (days <= 60) {
+            anniversaries.push({
+              ...member,
+              eventDate: `${anniversaryDate.month + 1}/${anniversaryDate.day}`,
+              daysUntil: days,
+              type: 'anniversary'
+            });
+          }
+        }
+      }
+    });
+    
+    // Sort by days until event
+    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+    anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
+    
+    setUpcomingBirthdays(birthdays);
+    setUpcomingAnniversaries(anniversaries);
+  };
 
   // Load cached data immediately, then fetch fresh data in background
   useEffect(() => {
-    // Check if we have cached data
     if (cachedMembers) {
       setMembers(cachedMembers);
+      calculateUpcomingEvents(cachedMembers);
     }
-
-    // Fetch fresh data in background
     fetchMembers();
   }, []);
 
-// Synchronize top and bottom scroll bars
-useEffect(() => {
-  const topScroll = topScrollBarRef.current;
-  const bottomScroll = bottomScrollBarRef.current;
-  
-  if (topScroll && bottomScroll) {
-    // Sync top scroll to bottom
-    const handleTopScroll = () => {
-      if (bottomScroll.scrollLeft !== topScroll.scrollLeft) {
+  // Recalculate events when members change
+  useEffect(() => {
+    calculateUpcomingEvents(members);
+  }, [members]);
+
+  // Synchronize top and bottom scroll bars
+  useEffect(() => {
+    const topScroll = topScrollBarRef.current;
+    const bottomScroll = bottomScrollBarRef.current;
+    
+    if (topScroll && bottomScroll) {
+      const syncTopToBottom = () => {
         bottomScroll.scrollLeft = topScroll.scrollLeft;
-      }
-    };
-    
-    // Sync bottom scroll to top
-    const handleBottomScroll = () => {
-      if (topScroll.scrollLeft !== bottomScroll.scrollLeft) {
+      };
+      
+      const syncBottomToTop = () => {
         topScroll.scrollLeft = bottomScroll.scrollLeft;
-      }
-    };
-    
-    topScroll.addEventListener('scroll', handleTopScroll);
-    bottomScroll.addEventListener('scroll', handleBottomScroll);
-    
-    // Clean up
-    return () => {
-      topScroll.removeEventListener('scroll', handleTopScroll);
-      bottomScroll.removeEventListener('scroll', handleBottomScroll);
-    };
-  }
-}, [members]); // Re-run when members change to ensure scroll bars are properly sized
+      };
+      
+      topScroll.addEventListener('scroll', syncTopToBottom);
+      bottomScroll.addEventListener('scroll', syncBottomToTop);
+      
+      return () => {
+        topScroll.removeEventListener('scroll', syncTopToBottom);
+        bottomScroll.removeEventListener('scroll', syncBottomToTop);
+      };
+    }
+  }, [members]);
 
   const fetchMembers = async (forceRefresh = false) => {
-    // Check cache first
     const now = Date.now();
     if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
-      console.log('Using cached data');
       setMembers(cachedMembers);
       return;
     }
-
+    
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
@@ -118,7 +234,6 @@ useEffect(() => {
         await axios.post(`${API_URL}/members`, formData);
         toast.success('Member added successfully');
       }
-      // Clear cache and refresh
       cachedMembers = null;
       await fetchMembers(true);
       resetForm();
@@ -154,7 +269,6 @@ useEffect(() => {
       try {
         await axios.delete(`${API_URL}/members/${id}`);
         toast.success('Member deleted successfully');
-        // Clear cache and refresh
         cachedMembers = null;
         await fetchMembers(true);
       } catch (error) {
@@ -192,9 +306,9 @@ useEffect(() => {
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-
+      
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-
+      
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -215,13 +329,13 @@ useEffect(() => {
           });
         }
       }
-
+      
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-
-      Promise.all(membersToImport.map(member =>
+      
+      Promise.all(membersToImport.map(member => 
         axios.post(`${API_URL}/members`, member)
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
@@ -233,7 +347,7 @@ useEffect(() => {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-
+      
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -243,7 +357,7 @@ useEffect(() => {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -253,11 +367,11 @@ useEffect(() => {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-
+    
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -273,7 +387,7 @@ useEffect(() => {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-
+    
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -295,7 +409,7 @@ useEffect(() => {
   };
 
   const stats = getStats();
-
+  
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -306,6 +420,14 @@ useEffect(() => {
       member.churchUnit?.toLowerCase().includes(term)
     );
   });
+
+  // Function to get event color based on days remaining
+  const getEventColor = (days) => {
+    if (days <= 7) return 'bg-red-100 text-red-800 border-red-200';
+    if (days <= 14) return 'bg-orange-100 text-orange-800 border-orange-200';
+    if (days <= 30) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-green-100 text-green-800 border-green-200';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
@@ -341,6 +463,12 @@ useEffect(() => {
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
+              <button
+                onClick={resetDatabase}
+                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
+              >
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+              </button>
             </div>
           </div>
         </div>
@@ -348,6 +476,101 @@ useEffect(() => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
+        
+        {/* Upcoming Events Section */}
+        {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-green-800 mb-4 flex items-center gap-2">
+              <CalendarIcon className="w-6 h-6" />
+              Upcoming Celebrations
+            </h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Upcoming Birthdays */}
+              {upcomingBirthdays.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Cake className="w-5 h-5" />
+                      🎂 Upcoming Birthdays ({upcomingBirthdays.length})
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {upcomingBirthdays.map((member, idx) => (
+                      <div key={idx} className="p-4 hover:bg-pink-50 transition-colors">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {member.firstName} {member.lastName}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                            </p>
+                            {member.phoneNumber && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                📞 {member.phoneNumber}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                              {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              📅 {member.eventDate}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Upcoming Anniversaries */}
+              {upcomingAnniversaries.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Gift className="w-5 h-5" />
+                      💍 Upcoming Anniversaries ({upcomingAnniversaries.length})
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {upcomingAnniversaries.map((member, idx) => (
+                      <div key={idx} className="p-4 hover:bg-purple-50 transition-colors">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {member.firstName} {member.lastName}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                            </p>
+                            {member.phoneNumber && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                📞 {member.phoneNumber}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                              {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              📅 {member.eventDate}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-green-600">
@@ -417,144 +640,134 @@ useEffect(() => {
           </div>
         </div>
 
-       {/* Members Table - Simple working dual scroll bars */}
-<div className="bg-white rounded-lg shadow-md overflow-hidden">
-  
-  {/* TOP SCROLL BAR - Creates a scroll bar above the table */}
-  <div className="bg-gray-50 border-b border-gray-200">
-    <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
-    <div 
-      ref={topScrollBarRef}
-      className="overflow-x-auto"
-    >
-      {/* This invisible div forces the scroll bar to appear */}
-      <div style={{ width: '1400px', height: '10px' }}></div>
-    </div>
-  </div>
-  
-  {/* MAIN TABLE CONTAINER - Bottom scroll bar */}
-  <div 
-    ref={bottomScrollBarRef}
-    className="overflow-x-auto"
-  >
-    <table className="min-w-[1400px] w-full">
-      {/* Table Header */}
-      <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
-        <tr>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-200">
-        {filteredMembers.map((member, index) => (
-          <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
-            <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
-            <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
-            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-              {member.gender && (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {member.gender}
-                </span>
-              )}
-              {!member.gender && '-'}
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-              {member.phoneNumber && (
-                <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                  <Phone className="w-3 h-3" /> {member.phoneNumber}
-                </a>
-              )}
-              {!member.phoneNumber && '-'}
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-              {member.whatsappNumber && (
-                <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                  {member.whatsappNumber}
-                </a>
-              )}
-              {!member.whatsappNumber && '-'}
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-              {member.maritalStatus && (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {member.maritalStatus}
-                </span>
-              )}
-              {!member.maritalStatus && '-'}
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
-              {member.residentialAddress || '-'}
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
-            <td className="px-4 py-3 text-sm border-r border-gray-200">
-              <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
-              </span>
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-              {member.churchUnit && (
-                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                  {member.churchUnit}
-                </span>
-              )}
-              {!member.churchUnit && '-'}
-            </td>
-            <td className="px-4 py-3">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(member)}
-                  className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                  title="Edit Member"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(member._id)}
-                  className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                  title="Delete Member"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-  
-  {/* Scroll indicator */}
-  <div className="bg-gray-50 px-4 py-2 text-center text-xs text-gray-500 border-t flex items-center justify-center gap-2">
-    <ChevronLeft className="w-3 h-3" />
-    Scroll using the bar above or below
-    <ChevronRight className="w-3 h-3" />
-  </div>
-  
-  {filteredMembers.length === 0 && (
-    <div className="text-center py-12 text-gray-500">
-      <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-      <p className="text-lg font-medium">No members found</p>
-      <p className="text-sm">Click "Add Member" to get started.</p>
-    </div>
-  )}
-</div>
+        {/* Members Table - Keep existing table code */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {/* TOP SCROLL BAR */}
+          <div className="bg-gray-50 border-b border-gray-200">
+            <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
+            <div 
+              ref={topScrollBarRef}
+              className="overflow-x-auto"
+            >
+              <div style={{ width: '1400px', height: '10px' }}></div>
+            </div>
+          </div>
+          
+          {/* MAIN TABLE CONTAINER */}
+          <div 
+            ref={bottomScrollBarRef}
+            className="overflow-x-auto"
+          >
+            <table className="min-w-[1400px] w-full">
+              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredMembers.map((member, index) => (
+                  <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
+                    <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.gender && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {member.gender}
+                        </span>
+                      )}
+                      {!member.gender && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.phoneNumber && (
+                        <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                          <Phone className="w-3 h-3" /> {member.phoneNumber}
+                        </a>
+                      )}
+                      {!member.phoneNumber && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.whatsappNumber && (
+                        <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                          {member.whatsappNumber}
+                        </a>
+                      )}
+                      {!member.whatsappNumber && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.maritalStatus && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {member.maritalStatus}
+                        </span>
+                      )}
+                      {!member.maritalStatus && '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+                      {member.residentialAddress || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+                    <td className="px-4 py-3 text-sm border-r border-gray-200">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                      {member.churchUnit && (
+                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                          {member.churchUnit}
+                        </span>
+                      )}
+                      {!member.churchUnit && '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(member)}
+                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                          title="Edit Member"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(member._id)}
+                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                          title="Delete Member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredMembers.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+              <p className="text-lg font-medium">No members found</p>
+              <p className="text-sm">Click "Add Member" to get started.</p>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Add/Edit Member Modal - Keep as is */}
