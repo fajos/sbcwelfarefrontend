@@ -93,12 +93,10 @@ function App() {
     return null;
   };
 
-  // Calculate upcoming birthdays and anniversaries
+  // Calculate upcoming birthdays and anniversaries (within 30 days)
   const calculateUpcomingEvents = (membersList) => {
     const today = new Date();
     const currentYear = today.getFullYear();
-    const todayMonth = today.getMonth();
-    const todayDay = today.getDate();
     
     const birthdays = [];
     const anniversaries = [];
@@ -121,7 +119,7 @@ function App() {
         const birthDate = extractMonthDay(member.dateOfBirth);
         if (birthDate) {
           const days = daysUntil(birthDate.month, birthDate.day);
-          if (days <= 60) { // Show upcoming events within 60 days
+          if (days <= 30) { // Changed to 30 days
             birthdays.push({
               ...member,
               eventDate: `${birthDate.month + 1}/${birthDate.day}`,
@@ -137,7 +135,7 @@ function App() {
         const anniversaryDate = extractMonthDay(member.weddingAnniversary);
         if (anniversaryDate) {
           const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
-          if (days <= 60) {
+          if (days <= 30) { // Changed to 30 days
             anniversaries.push({
               ...member,
               eventDate: `${anniversaryDate.month + 1}/${anniversaryDate.day}`,
@@ -430,69 +428,83 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-yellow-50">
       <Toaster position="top-right" />
 
-      {/* Header */}
-      <header className="bg-gradient-to-r from-green-800 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-3">
-              <Church className="w-8 h-8 md:w-10 md:h-10" />
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold">C&S Saints Builder Church</h1>
-                <p className="text-green-200 text-sm md:text-base">Welfare Management System</p>
-              </div>
-            </div>
-            <div className="flex gap-2 md:gap-3 flex-wrap">
-              <button
-                onClick={() => { setIsImportOpen(true); resetForm(); }}
-                className="bg-purple-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-md text-sm md:text-base"
-              >
-                <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
-              </button>
-              <button
-                onClick={exportToCSV}
-                className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition shadow-md text-sm md:text-base"
-              >
-                <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
-              </button>
-              <button
-                onClick={() => { setIsFormOpen(true); resetForm(); }}
-                className="bg-white text-green-800 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-green-100 transition shadow-md text-sm md:text-base"
-              >
-                <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
-              </button>
-              <button
-                onClick={resetDatabase}
-                className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-700 transition shadow-md text-sm md:text-base"
-              >
-                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
-              </button>
-            </div>
-          </div>
+      {/* Header - Church Colors: Blue, Purple, Gold with Actual Logo */}
+<header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
+  <div className="container mx-auto px-4 py-4">
+    <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center space-x-3">
+        {/* Actual Church Logo Image */}
+        <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
+          <img 
+            src="/src/assets/church-logo.png" 
+            alt="C&S Saints Builder Church Logo" 
+            className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-full"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.style.display = 'none';
+              e.target.parentElement.innerHTML = '<div class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center"><span class="text-blue-900 font-bold text-xl">⛪</span></div>';
+            }}
+          />
         </div>
-      </header>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+            C&S Saints Builder Church
+          </h1>
+          <p className="text-yellow-200 text-sm md:text-base">Welfare Management System</p>
+        </div>
+      </div>
+      <div className="flex gap-2 md:gap-3 flex-wrap">
+        <button
+          onClick={() => { setIsImportOpen(true); resetForm(); }}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
+        >
+          <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
+        </button>
+        <button
+          onClick={exportToCSV}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
+        >
+          <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
+        </button>
+        <button
+          onClick={() => { setIsFormOpen(true); resetForm(); }}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+        >
+          <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
+        </button>
+        <button
+          onClick={resetDatabase}
+          className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
+        >
+          <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
         
-        {/* Upcoming Events Section */}
+        {/* Upcoming Events Section - Church Colors */}
         {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-green-800 mb-4 flex items-center gap-2">
-              <CalendarIcon className="w-6 h-6" />
-              Upcoming Celebrations
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
+              <CalendarIcon className="w-6 h-6 text-purple-600" />
+              Upcoming Celebrations (Next 30 Days)
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Upcoming Birthdays */}
               {upcomingBirthdays.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
                   <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
                     <h3 className="font-bold flex items-center gap-2">
                       <Cake className="w-5 h-5" />
-                      🎂 Upcoming Birthdays ({upcomingBirthdays.length})
+                      🎂 Upcoming Birthdays ({upcomingBirthdays.length}) - Next 30 Days
                     </h3>
                   </div>
                   <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
@@ -529,11 +541,11 @@ function App() {
               
               {/* Upcoming Anniversaries */}
               {upcomingAnniversaries.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
                   <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
                     <h3 className="font-bold flex items-center gap-2">
                       <Gift className="w-5 h-5" />
-                      💍 Upcoming Anniversaries ({upcomingAnniversaries.length})
+                      💍 Upcoming Anniversaries ({upcomingAnniversaries.length}) - Next 30 Days
                     </h3>
                   </div>
                   <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
@@ -571,40 +583,40 @@ function App() {
           </div>
         )}
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Church Colors */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-green-600">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-xs md:text-sm">Total Members</p>
-                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.total}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Total Members</p>
+                <p className="text-2xl md:text-3xl font-bold text-blue-800">{stats.total}</p>
               </div>
-              <Users className="w-8 h-8 md:w-10 md:h-10 text-green-600 opacity-75" />
+              <Users className="w-8 h-8 md:w-10 md:h-10 text-blue-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-purple-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-xs md:text-sm">Foundation Class</p>
-                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.foundationComplete}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Foundation Class</p>
+                <p className="text-2xl md:text-3xl font-bold text-purple-800">{stats.foundationComplete}</p>
               </div>
-              <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-blue-600 opacity-75" />
+              <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-purple-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-purple-600">
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-yellow-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-xs md:text-sm">Church Units</p>
-                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.uniqueUnits}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Church Units</p>
+                <p className="text-2xl md:text-3xl font-bold text-yellow-800">{stats.uniqueUnits}</p>
               </div>
-              <Briefcase className="w-8 h-8 md:w-10 md:h-10 text-purple-600 opacity-75" />
+              <Briefcase className="w-8 h-8 md:w-10 md:h-10 text-yellow-600 opacity-75" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-pink-600">
+          <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-pink-600">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-xs md:text-sm">Married Members</p>
-                <p className="text-2xl md:text-3xl font-bold text-green-800">{stats.married}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Married Members</p>
+                <p className="text-2xl md:text-3xl font-bold text-pink-800">{stats.married}</p>
               </div>
               <Heart className="w-8 h-8 md:w-10 md:h-10 text-pink-600 opacity-75" />
             </div>
@@ -628,19 +640,19 @@ function App() {
                 placeholder="Search by name, phone number, or church unit..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base"
+                className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
               />
             </div>
             <button
               onClick={() => fetchMembers(true)}
-              className="bg-gray-600 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition text-sm md:text-base"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition text-sm md:text-base"
             >
               <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
             </button>
           </div>
         </div>
 
-        {/* Members Table - Keep existing table code */}
+        {/* Members Table - Keep existing table code with updated header color */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {/* TOP SCROLL BAR */}
           <div className="bg-gray-50 border-b border-gray-200">
@@ -659,28 +671,28 @@ function App() {
             className="overflow-x-auto"
           >
             <table className="min-w-[1400px] w-full">
-              <thead className="bg-gradient-to-r from-green-700 to-emerald-700 text-white sticky top-0 z-10">
+              <thead className="bg-gradient-to-r from-blue-800 via-purple-800 to-yellow-700 text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">First Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Last Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Gender</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">WhatsApp</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Date of Birth</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Marital Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Wedding Anniversary</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Occupation</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Foundation Class</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-green-600">Church Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">First Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Last Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Gender</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">WhatsApp</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Date of Birth</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Marital Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Wedding Anniversary</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Occupation</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Foundation Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Church Unit</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredMembers.map((member, index) => (
-                  <tr key={member._id} className="hover:bg-green-50 transition-colors duration-200">
+                  <tr key={member._id} className="hover:bg-blue-50 transition-colors duration-200">
                     <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
@@ -770,76 +782,76 @@ function App() {
         </div>
       </main>
 
-      {/* Add/Edit Member Modal - Keep as is */}
+      {/* Add/Edit Member Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-green-800">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-800 to-purple-800 text-white px-6 py-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">
                 {editingMember ? '✏️ Edit Member' : '➕ Add New Member'}
               </h2>
-              <button onClick={() => { setIsFormOpen(false); resetForm(); }} className="text-gray-500 hover:text-gray-700 text-3xl">×</button>
+              <button onClick={() => { setIsFormOpen(false); resetForm(); }} className="text-white hover:text-yellow-200 text-3xl">×</button>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Email</label>
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Gender</label>
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Phone Number</label>
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">WhatsApp Number</label>
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Marital Status</label>
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Any format" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Wedding Anniversary</label>
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Residential Address</label>
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Occupation</label>
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Completed Foundation Class?</label>
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                  <label className="block text-sm font-medium mb-1 text-blue-800">Church Unit</label>
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">{editingMember ? 'Update Member' : 'Save Member'}</button>
+                <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition shadow-md">{editingMember ? 'Update Member' : 'Save Member'}</button>
                 <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
               </div>
             </form>
@@ -851,23 +863,23 @@ function App() {
       {isImportOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-3xl w-full">
-            <div className="border-b px-6 py-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-green-800">📤 Bulk Import Members</h2>
-              <button onClick={() => setIsImportOpen(false)} className="text-gray-500 hover:text-gray-700 text-3xl">×</button>
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+              <h2 className="text-2xl font-bold">📤 Bulk Import Members</h2>
+              <button onClick={() => setIsImportOpen(false)} className="text-white hover:text-yellow-200 text-3xl">×</button>
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Upload CSV File</label>
-                <input type="file" accept=".csv" onChange={handleFileUpload} className="w-full border rounded-lg p-2" />
+                <label className="block text-sm font-medium mb-2 text-purple-800">Upload CSV File</label>
+                <input type="file" accept=".csv" onChange={handleFileUpload} className="w-full border border-gray-300 rounded-lg p-2" />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Or Paste CSV Data</label>
+                <label className="block text-sm font-medium mb-2 text-purple-800">Or Paste CSV Data</label>
                 <p className="text-xs text-gray-500 mb-2">Format: First Name, Last Name, Email, Gender, Phone, WhatsApp, DOB, Marital Status, Anniversary, Address, Occupation, Foundation Class (Yes/No), Church Unit</p>
-                <textarea rows="6" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder="John,Doe,john@email.com,Male,1234567890,1234567890,25th Dec 1990,Married,June 1st 2015,123 Main St,Engineer,Yes,Choir" className="w-full border rounded-lg p-2 font-mono text-sm"></textarea>
+                <textarea rows="6" value={importData} onChange={(e) => setImportData(e.target.value)} placeholder="John,Doe,john@email.com,Male,1234567890,1234567890,December 25,Married,June 1,123 Main St,Engineer,Yes,Choir" className="w-full border border-gray-300 rounded-lg p-2 font-mono text-sm"></textarea>
               </div>
               <div className="flex gap-3">
-                <button onClick={handleBulkImport} className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700">Import Members</button>
-                <button onClick={() => setIsImportOpen(false)} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancel</button>
+                <button onClick={handleBulkImport} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition">Import Members</button>
+                <button onClick={() => setIsImportOpen(false)} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
               </div>
             </div>
           </div>
