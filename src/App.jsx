@@ -8,6 +8,7 @@ import {
   GraduationCap, ChevronLeft, ChevronRight,
   Cake, Gift, Calendar as CalendarIcon
 } from 'lucide-react';
+import churchLogo from './assets/church-logo.png'; // Adjust path if needed
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -93,6 +94,13 @@ function App() {
     return null;
   };
 
+  // Helper function to get month name
+  const getMonthName = (monthNumber) => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[monthNumber];
+  };
+
   // Calculate upcoming birthdays and anniversaries (within 30 days)
   const calculateUpcomingEvents = (membersList) => {
     const today = new Date();
@@ -119,10 +127,12 @@ function App() {
         const birthDate = extractMonthDay(member.dateOfBirth);
         if (birthDate) {
           const days = daysUntil(birthDate.month, birthDate.day);
-          if (days <= 30) { // Changed to 30 days
+          if (days <= 30) {
             birthdays.push({
               ...member,
-              eventDate: `${birthDate.month + 1}/${birthDate.day}`,
+              eventMonth: birthDate.month,
+              eventDay: birthDate.day,
+              eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
               daysUntil: days,
               type: 'birthday'
             });
@@ -135,10 +145,12 @@ function App() {
         const anniversaryDate = extractMonthDay(member.weddingAnniversary);
         if (anniversaryDate) {
           const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
-          if (days <= 30) { // Changed to 30 days
+          if (days <= 30) {
             anniversaries.push({
               ...member,
-              eventDate: `${anniversaryDate.month + 1}/${anniversaryDate.day}`,
+              eventMonth: anniversaryDate.month,
+              eventDay: anniversaryDate.day,
+              eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
               daysUntil: days,
               type: 'anniversary'
             });
@@ -439,7 +451,7 @@ function App() {
               {/* Actual Church Logo Image */}
               <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
                 <img
-                  src="/src/assets/church-logo.png"
+                  src={churchLogo}
                   alt="C&S Saints Builder Church Logo"
                   className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-full"
                   onError={(e) => {
@@ -475,7 +487,7 @@ function App() {
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
-              
+
             </div>
           </div>
         </div>
@@ -523,8 +535,8 @@ function App() {
                             <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
                               {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              📅 {member.eventDate}
+                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                              <Cake className="w-3 h-3" /> {member.eventDateFormatted}
                             </p>
                           </div>
                         </div>
@@ -564,8 +576,8 @@ function App() {
                             <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
                               {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              📅 {member.eventDate}
+                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                              <Gift className="w-3 h-3" /> {member.eventDateFormatted}
                             </p>
                           </div>
                         </div>
