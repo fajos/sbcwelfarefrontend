@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Login from './Login';
+import AdminDashboard from './AdminDashboard';
 import { 
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
@@ -9,7 +10,6 @@ import {
   GraduationCap, ChevronLeft, ChevronRight,
   Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
 } from 'lucide-react';
-import AdminDashboard from './AdminDashboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -38,6 +38,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -54,8 +55,6 @@ function App() {
     occupation: '', completedFoundationClass: 'No', churchUnit: ''
   });
 
-  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
 
@@ -67,17 +66,13 @@ function App() {
       
       if (storedToken && storedUser) {
         try {
-          // Set the token in axios defaults
           axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-          
-          // Verify token
           const response = await axios.get(`${API_URL}/auth/verify`, getAuthHeaders());
           if (response.data.valid) {
             const user = JSON.parse(storedUser);
             setIsAuthenticated(true);
             setCurrentUser(user);
             setUserRole(user.role);
-            // Load data immediately after successful auth
             await loadMembersData();
           } else {
             handleLogout();
@@ -125,7 +120,6 @@ function App() {
     setIsAuthenticated(true);
     setCurrentUser(user);
     setUserRole(user.role);
-    // Load data immediately after login
     await loadMembersData(true);
   };
 
@@ -137,9 +131,13 @@ function App() {
     setCurrentUser(null);
     setUserRole(null);
     setMembers([]);
+    setShowAdminDashboard(false);
     toast.success('Logged out successfully');
   };
 
+  // Rest of your existing functions (getMonthName, extractMonthDay, calculateUpcomingEvents, etc.)
+  // ... (keep all your existing functions here)
+  
   const getMonthName = (monthNumber) => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -524,6 +522,11 @@ function App() {
     return 'bg-green-100 text-green-800 border-green-200';
   };
 
+  // Show Admin Dashboard if toggled
+  if (showAdminDashboard) {
+    return <AdminDashboard onBack={() => setShowAdminDashboard(false)} />;
+  }
+
   // Show login page if not authenticated
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
@@ -569,6 +572,16 @@ function App() {
               </div>
             </div>
             <div className="flex gap-2 md:gap-3 flex-wrap">
+              {/* Admin Panel Button */}
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setShowAdminDashboard(true)}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                >
+                  <Shield className="w-4 h-4 md:w-5 md:h-5" /> Admin Panel
+                </button>
+              )}
+              
               {(userRole === 'admin' || userRole === 'editor') && (
                 <button
                   onClick={() => { setIsImportOpen(true); resetForm(); }}
@@ -605,15 +618,6 @@ function App() {
               >
                 <LogOut className="w-4 h-4 md:w-5 md:h-5" /> Logout
               </button>
-
-              {userRole === 'admin' && (
-                <button
-                  onClick={() => setShowAdminDashboard(true)}
-                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
-                >
-                  <Shield className="w-4 h-4 md:w-5 md:h-5" /> Admin Panel
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -921,13 +925,6 @@ function App() {
               <p className="text-sm">Click "Add Member" to get started.</p>
             </div>
           )}
-          
-          {filteredMembers.length === 0 && isLoading && (
-            <div className="text-center py-12 text-gray-500">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-              <p className="text-lg font-medium">Loading members...</p>
-            </div>
-          )}
         </div>
       </main>
 
@@ -1034,10 +1031,6 @@ function App() {
           </div>
         </div>
       )}
-
-       {showAdminDashboard && (
-                <AdminDashboard onBack={() => setShowAdminDashboard(false)} />
-              )}
     </div>
   );
 }
