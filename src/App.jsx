@@ -475,12 +475,7 @@ function App() {
               >
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
               </button>
-              <button
-                onClick={resetDatabase}
-                className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
-              >
-                <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
-              </button>
+              
             </div>
           </div>
         </div>
