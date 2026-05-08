@@ -12,11 +12,15 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Set default authorization header if token exists
-const token = localStorage.getItem('welfare_token');
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
+// Helper to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('welfare_token');
+  return {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
 
 // Cache configuration
 let cachedMembers = null;
@@ -58,7 +62,7 @@ function App() {
     if (token && user) {
       try {
         // Verify token with backend
-        const response = await axios.get(`${API_URL}/auth/verify`);
+        const response = await axios.get(`${API_URL}/auth/verify`, getAuthHeaders());
         if (response.data.valid) {
           setIsAuthenticated(true);
           setCurrentUser(user);
@@ -84,7 +88,6 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('welfare_token');
     localStorage.removeItem('welfare_user');
-    delete axios.defaults.headers.common['Authorization'];
     setIsAuthenticated(false);
     setCurrentUser(null);
     setUserRole(null);
@@ -241,7 +244,7 @@ function App() {
     
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/members`);
+      const response = await axios.get(`${API_URL}/members`, getAuthHeaders());
       cachedMembers = response.data;
       lastFetchTime = now;
       setMembers(response.data);
@@ -268,10 +271,10 @@ function App() {
 
     try {
       if (editingMember) {
-        await axios.put(`${API_URL}/members/${editingMember._id}`, formData);
+        await axios.put(`${API_URL}/members/${editingMember._id}`, formData, getAuthHeaders());
         toast.success('Member updated successfully');
       } else {
-        await axios.post(`${API_URL}/members`, formData);
+        await axios.post(`${API_URL}/members`, formData, getAuthHeaders());
         toast.success('Member added successfully');
       }
       cachedMembers = null;
@@ -282,6 +285,8 @@ function App() {
       console.error('Error saving member:', error);
       if (error.response?.status === 403) {
         toast.error('You do not have permission to add/edit members');
+      } else if (error.response?.status === 401) {
+        handleLogout();
       } else {
         toast.error('Error saving member');
       }
@@ -320,13 +325,17 @@ function App() {
     
     if (window.confirm('Are you sure you want to delete this member?')) {
       try {
-        await axios.delete(`${API_URL}/members/${id}`);
+        await axios.delete(`${API_URL}/members/${id}`, getAuthHeaders());
         toast.success('Member deleted successfully');
         cachedMembers = null;
         await fetchMembers(true);
       } catch (error) {
         console.error('Error deleting member:', error);
-        toast.error('Error deleting member');
+        if (error.response?.status === 401) {
+          handleLogout();
+        } else {
+          toast.error('Error deleting member');
+        }
       }
     }
   };
@@ -349,13 +358,17 @@ function App() {
     
     if (window.confirm('⚠️ WARNING: This will delete ALL members. Are you absolutely sure?')) {
       try {
-        await axios.delete(`${API_URL}/members`);
+        await axios.delete(`${API_URL}/members`, getAuthHeaders());
         toast.success('Database cleared successfully');
         cachedMembers = null;
         await fetchMembers(true);
       } catch (error) {
         console.error('Error clearing database:', error);
-        toast.error('Error clearing database');
+        if (error.response?.status === 401) {
+          handleLogout();
+        } else {
+          toast.error('Error clearing database');
+        }
       }
     }
   };
@@ -399,7 +412,7 @@ function App() {
       }
       
       Promise.all(membersToImport.map(member => 
-        axios.post(`${API_URL}/members`, member)
+        axios.post(`${API_URL}/members`, member, getAuthHeaders())
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
         cachedMembers = null;
@@ -408,7 +421,11 @@ function App() {
         setIsImportOpen(false);
       }).catch(error => {
         console.error('Import error:', error);
-        toast.error('Error importing members');
+        if (error.response?.status === 401) {
+          handleLogout();
+        } else {
+          toast.error('Error importing members');
+        }
       });
       
     } catch (error) {
@@ -893,58 +910,58 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
+                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({ ...formData, maritalStatus: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({ ...formData, weddingAnniversary: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
+                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1 text-blue-800">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({ ...formData, residentialAddress: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-blue-800">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({ ...formData, completedFoundationClass: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1 text-blue-800">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({ ...formData, churchUnit: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
