@@ -1,23 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import {
-  Users, Search, Plus, Edit2, Trash2,
-  RefreshCw, Download, Upload, Church,
-  Phone, Mail, Briefcase, Heart,
+import Login from './Login';
+import { 
+  Users, Search, Plus, Edit2, Trash2, 
+  RefreshCw, Download, Upload, Church, 
+  Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
 } from 'lucide-react';
-import churchLogo from './assets/church-logo.png'; // Adjust path if needed
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Set default authorization header if token exists
+const token = localStorage.getItem('welfare_token');
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 // Cache configuration
 let cachedMembers = null;
 let lastFetchTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const CACHE_DURATION = 5 * 60 * 1000;
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -34,29 +43,74 @@ function App() {
     occupation: '', completedFoundationClass: 'No', churchUnit: ''
   });
 
-  // Refs for synchronized scrolling
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
 
-  // Helper function to extract month and day from date string
+  // Check authentication on mount
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const token = localStorage.getItem('welfare_token');
+    const user = JSON.parse(localStorage.getItem('welfare_user') || 'null');
+    
+    if (token && user) {
+      try {
+        // Verify token with backend
+        const response = await axios.get(`${API_URL}/auth/verify`);
+        if (response.data.valid) {
+          setIsAuthenticated(true);
+          setCurrentUser(user);
+          setUserRole(user.role);
+          fetchMembers();
+        } else {
+          handleLogout();
+        }
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        handleLogout();
+      }
+    }
+  };
+
+  const handleLogin = (user) => {
+    setIsAuthenticated(true);
+    setCurrentUser(user);
+    setUserRole(user.role);
+    fetchMembers();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('welfare_token');
+    localStorage.removeItem('welfare_user');
+    delete axios.defaults.headers.common['Authorization'];
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setUserRole(null);
+    setMembers([]);
+    toast.success('Logged out successfully');
+  };
+
+  const getMonthName = (monthNumber) => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[monthNumber];
+  };
+
   const extractMonthDay = (dateString) => {
     if (!dateString || dateString === '-') return null;
-
-    // Try to parse various date formats
+    
     const patterns = [
-      // Month Day, Year (e.g., "December 25, 1990" or "Dec 25, 1990")
       { regex: /(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(?:\d{4})?/i },
-      // Month/Day (e.g., "12/25" or "12/25/1990")
       { regex: /(\d{1,2})\/(\d{1,2})(?:\/\d{4})?/ },
-      // Day Month (e.g., "25 December" or "25 Dec")
       { regex: /(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i }
     ];
-
+    
     for (const pattern of patterns) {
       const match = dateString.match(pattern.regex);
       if (match) {
         if (pattern.regex.toString().includes('january')) {
-          // Month name format
           const monthMap = {
             january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
             april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
@@ -69,14 +123,12 @@ function App() {
             return { month, day };
           }
         } else if (pattern.regex.toString().includes('/')) {
-          // Month/Day format
           const month = parseInt(match[1]) - 1;
           const day = parseInt(match[2]);
           if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
             return { month, day };
           }
         } else if (pattern.regex.toString().includes('st|nd|rd|th')) {
-          // Day Month format
           const day = parseInt(match[1]);
           const monthMap = {
             january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
@@ -94,35 +146,25 @@ function App() {
     return null;
   };
 
-  // Helper function to get month name
-  const getMonthName = (monthNumber) => {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'];
-    return months[monthNumber];
-  };
-
-  // Calculate upcoming birthdays and anniversaries (within 30 days)
   const calculateUpcomingEvents = (membersList) => {
     const today = new Date();
     const currentYear = today.getFullYear();
-
+    
     const birthdays = [];
     const anniversaries = [];
-
-    // Calculate days until a given month/day
+    
     const daysUntil = (targetMonth, targetDay) => {
       const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
       const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
-
+      
       if (targetDateThisYear > today) {
         return Math.ceil((targetDateThisYear - today) / (1000 * 60 * 60 * 24));
       } else {
         return Math.ceil((targetDateNextYear - today) / (1000 * 60 * 60 * 24));
       }
     };
-
+    
     membersList.forEach(member => {
-      // Process birthday
       if (member.dateOfBirth && member.dateOfBirth !== '-') {
         const birthDate = extractMonthDay(member.dateOfBirth);
         if (birthDate) {
@@ -130,17 +172,13 @@ function App() {
           if (days <= 30) {
             birthdays.push({
               ...member,
-              eventMonth: birthDate.month,
-              eventDay: birthDate.day,
               eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
               daysUntil: days,
-              type: 'birthday'
             });
           }
         }
       }
-
-      // Process wedding anniversary
+      
       if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
         const anniversaryDate = extractMonthDay(member.weddingAnniversary);
         if (anniversaryDate) {
@@ -148,56 +186,43 @@ function App() {
           if (days <= 30) {
             anniversaries.push({
               ...member,
-              eventMonth: anniversaryDate.month,
-              eventDay: anniversaryDate.day,
               eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
               daysUntil: days,
-              type: 'anniversary'
             });
           }
         }
       }
     });
-
-    // Sort by days until event
+    
     birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
     anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
-
+    
     setUpcomingBirthdays(birthdays);
     setUpcomingAnniversaries(anniversaries);
   };
 
-  // Load cached data immediately, then fetch fresh data in background
   useEffect(() => {
-    if (cachedMembers) {
-      setMembers(cachedMembers);
-      calculateUpcomingEvents(cachedMembers);
+    if (isAuthenticated && members.length > 0) {
+      calculateUpcomingEvents(members);
     }
-    fetchMembers();
-  }, []);
+  }, [members, isAuthenticated]);
 
-  // Recalculate events when members change
-  useEffect(() => {
-    calculateUpcomingEvents(members);
-  }, [members]);
-
-  // Synchronize top and bottom scroll bars
   useEffect(() => {
     const topScroll = topScrollBarRef.current;
     const bottomScroll = bottomScrollBarRef.current;
-
+    
     if (topScroll && bottomScroll) {
       const syncTopToBottom = () => {
         bottomScroll.scrollLeft = topScroll.scrollLeft;
       };
-
+      
       const syncBottomToTop = () => {
         topScroll.scrollLeft = bottomScroll.scrollLeft;
       };
-
+      
       topScroll.addEventListener('scroll', syncTopToBottom);
       bottomScroll.addEventListener('scroll', syncBottomToTop);
-
+      
       return () => {
         topScroll.removeEventListener('scroll', syncTopToBottom);
         bottomScroll.removeEventListener('scroll', syncBottomToTop);
@@ -206,12 +231,14 @@ function App() {
   }, [members]);
 
   const fetchMembers = async (forceRefresh = false) => {
+    if (!isAuthenticated) return;
+    
     const now = Date.now();
     if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
       setMembers(cachedMembers);
       return;
     }
-
+    
     setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}/members`);
@@ -221,6 +248,9 @@ function App() {
       toast.success(`${response.data.length} members loaded`);
     } catch (error) {
       console.error('Error fetching members:', error);
+      if (error.response?.status === 401) {
+        handleLogout();
+      }
       if (!cachedMembers) {
         toast.error('Error loading members');
       }
@@ -250,11 +280,19 @@ function App() {
       setIsFormOpen(false);
     } catch (error) {
       console.error('Error saving member:', error);
-      toast.error('Error saving member');
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to add/edit members');
+      } else {
+        toast.error('Error saving member');
+      }
     }
   };
 
   const handleEdit = (member) => {
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      toast.error('You do not have permission to edit members');
+      return;
+    }
     setEditingMember(member);
     setFormData({
       firstName: member.firstName || '',
@@ -275,6 +313,11 @@ function App() {
   };
 
   const handleDelete = async (id) => {
+    if (userRole !== 'admin') {
+      toast.error('Only administrators can delete members');
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this member?')) {
       try {
         await axios.delete(`${API_URL}/members/${id}`);
@@ -299,6 +342,11 @@ function App() {
   };
 
   const resetDatabase = async () => {
+    if (userRole !== 'admin') {
+      toast.error('Only administrators can reset the database');
+      return;
+    }
+    
     if (window.confirm('⚠️ WARNING: This will delete ALL members. Are you absolutely sure?')) {
       try {
         await axios.delete(`${API_URL}/members`);
@@ -313,12 +361,17 @@ function App() {
   };
 
   const handleBulkImport = () => {
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      toast.error('You do not have permission to import members');
+      return;
+    }
+    
     try {
       const rows = importData.trim().split('\n');
       const membersToImport = [];
-
+      
       const startRow = rows[0].toLowerCase().includes('first') ? 1 : 0;
-
+      
       for (let i = startRow; i < rows.length; i++) {
         const cols = rows[i].split(',').map(col => col.trim());
         if (cols.length >= 2 && cols[0] && cols[1]) {
@@ -339,13 +392,13 @@ function App() {
           });
         }
       }
-
+      
       if (membersToImport.length === 0) {
         toast.error('No valid members found to import');
         return;
       }
-
-      Promise.all(membersToImport.map(member =>
+      
+      Promise.all(membersToImport.map(member => 
         axios.post(`${API_URL}/members`, member)
       )).then(async () => {
         toast.success(`Successfully imported ${membersToImport.length} members`);
@@ -357,7 +410,7 @@ function App() {
         console.error('Import error:', error);
         toast.error('Error importing members');
       });
-
+      
     } catch (error) {
       console.error('Parse error:', error);
       toast.error('Error parsing import data');
@@ -367,7 +420,7 @@ function App() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       setImportData(event.target.result);
@@ -377,11 +430,11 @@ function App() {
 
   const exportToCSV = () => {
     const headers = [
-      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number',
-      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary',
+      'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
+      'WhatsApp Number', 'Date of Birth', 'Marital Status', 'Wedding Anniversary', 
       'Residential Address', 'Occupation', 'Completed Foundation Class', 'Church Unit'
     ];
-
+    
     const csvData = members.map(m => [
       m.firstName || '',
       m.lastName || '',
@@ -397,7 +450,7 @@ function App() {
       m.completedFoundationClass || 'No',
       m.churchUnit || ''
     ]);
-
+    
     const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -419,7 +472,7 @@ function App() {
   };
 
   const stats = getStats();
-
+  
   const filteredMembers = members.filter(member => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -431,7 +484,6 @@ function App() {
     );
   });
 
-  // Function to get event color based on days remaining
   const getEventColor = (days) => {
     if (days <= 7) return 'bg-red-100 text-red-800 border-red-200';
     if (days <= 14) return 'bg-orange-100 text-orange-800 border-orange-200';
@@ -439,22 +491,30 @@ function App() {
     return 'bg-green-100 text-green-800 border-green-200';
   };
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-yellow-50">
       <Toaster position="top-right" />
 
-      {/* Header - Church Colors: Blue, Purple, Gold with Actual Logo */}
+      {/* Header */}
       <header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            {/* Church Logo - Larger size */}
             <div className="flex items-center space-x-3">
               <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg">
                 <div className="w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden bg-white">
-                  <img
-                    src={churchLogo}
-                    alt="C&S Saints Builder Church Logo"
-                    className="w-full h-full object-cover scale-110"
+                  <img 
+                    src="/church-logo.png" 
+                    alt="Church Logo" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.parentElement.innerHTML = '<span className="text-blue-900 font-bold text-2xl">⛪</span>';
+                    }}
                   />
                 </div>
               </div>
@@ -462,29 +522,54 @@ function App() {
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                   C&S Saints Builder Church
                 </h1>
-                <p className="text-yellow-200 text-sm md:text-base">Welfare Management System</p>
+                <p className="text-yellow-200 text-sm md:text-base flex items-center gap-2">
+                  Welfare Management System
+                  {userRole === 'admin' && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Admin</span>
+                  )}
+                  {userRole === 'editor' && (
+                    <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">Editor</span>
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex gap-2 md:gap-3 flex-wrap">
-              <button
-                onClick={() => { setIsImportOpen(true); resetForm(); }}
-                className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
-              >
-                <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
-              </button>
+              {(userRole === 'admin' || userRole === 'editor') && (
+                <button
+                  onClick={() => { setIsImportOpen(true); resetForm(); }}
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
+                >
+                  <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
+                </button>
+              )}
               <button
                 onClick={exportToCSV}
                 className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
               >
                 <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
               </button>
+              {(userRole === 'admin' || userRole === 'editor') && (
+                <button
+                  onClick={() => { setIsFormOpen(true); resetForm(); }}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                >
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
+                </button>
+              )}
+              {userRole === 'admin' && (
+                <button
+                  onClick={resetDatabase}
+                  className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
+                >
+                  <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+                </button>
+              )}
               <button
-                onClick={() => { setIsFormOpen(true); resetForm(); }}
-                className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                onClick={handleLogout}
+                className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-gray-700 hover:to-gray-800 transition shadow-md text-sm md:text-base"
               >
-                <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
+                <LogOut className="w-4 h-4 md:w-5 md:h-5" /> Logout
               </button>
-
             </div>
           </div>
         </div>
@@ -492,17 +577,24 @@ function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
-
-        {/* Upcoming Events Section - Church Colors */}
+        
+        {/* Welcome Banner */}
+        <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6">
+          <p className="text-gray-700">
+            Welcome, <span className="font-semibold">{currentUser?.username}</span>! 
+            You are logged in as <span className="font-semibold text-purple-600">{userRole}</span>.
+          </p>
+        </div>
+        
+        {/* Upcoming Events Section */}
         {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
               <CalendarIcon className="w-6 h-6 text-purple-600" />
               Upcoming Celebrations (Next 30 Days)
             </h2>
-
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Upcoming Birthdays */}
               {upcomingBirthdays.length > 0 && (
                 <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
                   <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
@@ -542,8 +634,7 @@ function App() {
                   </div>
                 </div>
               )}
-
-              {/* Upcoming Anniversaries */}
+              
               {upcomingAnniversaries.length > 0 && (
                 <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
                   <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
@@ -587,7 +678,7 @@ function App() {
           </div>
         )}
 
-        {/* Stats Cards - Church Colors */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
             <div className="flex items-center justify-between">
@@ -656,21 +747,19 @@ function App() {
           </div>
         </div>
 
-        {/* Members Table - Keep existing table code with updated header color */}
+        {/* Members Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* TOP SCROLL BAR */}
           <div className="bg-gray-50 border-b border-gray-200">
             <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
-            <div
+            <div 
               ref={topScrollBarRef}
               className="overflow-x-auto"
             >
               <div style={{ width: '1400px', height: '10px' }}></div>
             </div>
           </div>
-
-          {/* MAIN TABLE CONTAINER */}
-          <div
+          
+          <div 
             ref={bottomScrollBarRef}
             className="overflow-x-auto"
           >
@@ -754,20 +843,24 @@ function App() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(member)}
-                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit Member"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member._id)}
-                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                          title="Delete Member"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {(userRole === 'admin' || userRole === 'editor') && (
+                          <button
+                            onClick={() => handleEdit(member)}
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit Member"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {userRole === 'admin' && (
+                          <button
+                            onClick={() => handleDelete(member._id)}
+                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                            title="Delete Member"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -775,7 +868,7 @@ function App() {
               </tbody>
             </table>
           </div>
-
+          
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
