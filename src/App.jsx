@@ -7,8 +7,9 @@ import {
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
 } from 'lucide-react';
+import AdminDashboard from './AdminDashboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
