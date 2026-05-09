@@ -682,7 +682,7 @@ function App() {
                           </div>
                           <div className="text-right">
                             <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
-                              {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                              {member.daysUntil === 0 ? '🎉 HAPPY BIRTHDAY!' : `in ${member.daysUntil} days`}
                             </div>
                             <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
                               <Cake className="w-3 h-3" /> {member.eventDateFormatted}
