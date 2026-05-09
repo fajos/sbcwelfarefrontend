@@ -9,7 +9,7 @@ import {
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, MessageCircle
 } from 'lucide-react';
 
 
