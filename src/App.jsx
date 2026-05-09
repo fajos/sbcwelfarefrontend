@@ -147,6 +147,8 @@ function App() {
   const extractMonthDay = (dateString) => {
     if (!dateString || dateString === '-') return null;
     
+    console.log('Parsing date:', dateString);
+
     const patterns = [
       { regex: /(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(?:\d{4})?/i },
       { regex: /(\d{1,2})\/(\d{1,2})(?:\/\d{4})?/ },
@@ -189,63 +191,73 @@ function App() {
         }
       }
     }
+    console.log('Parsed result:', result);
     return null;
   };
 
   const calculateUpcomingEvents = (membersList) => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  
+  const birthdays = [];
+  const anniversaries = [];
+  
+  const daysUntil = (targetMonth, targetDay) => {
+    const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
+    const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
     
-    const birthdays = [];
-    const anniversaries = [];
+    // Set hours to 0 for accurate day comparison
+    targetDateThisYear.setHours(0, 0, 0, 0);
+    targetDateNextYear.setHours(0, 0, 0, 0);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     
-    const daysUntil = (targetMonth, targetDay) => {
-      const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
-      const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
-      
-      if (targetDateThisYear > today) {
-        return Math.ceil((targetDateThisYear - today) / (1000 * 60 * 60 * 24));
-      } else {
-        return Math.ceil((targetDateNextYear - today) / (1000 * 60 * 60 * 24));
-      }
-    };
+    if (targetDateThisYear >= todayStart) {
+      return Math.ceil((targetDateThisYear - todayStart) / (1000 * 60 * 60 * 24));
+    } else {
+      return Math.ceil((targetDateNextYear - todayStart) / (1000 * 60 * 60 * 24));
+    }
+  };
     
     membersList.forEach(member => {
-      if (member.dateOfBirth && member.dateOfBirth !== '-') {
-        const birthDate = extractMonthDay(member.dateOfBirth);
-        if (birthDate) {
-          const days = daysUntil(birthDate.month, birthDate.day);
-          if (days <= 30) {
-            birthdays.push({
-              ...member,
-              eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
-              daysUntil: days,
-            });
-          }
+    // Process birthday
+    if (member.dateOfBirth && member.dateOfBirth !== '-') {
+      const birthDate = extractMonthDay(member.dateOfBirth);
+      if (birthDate) {
+        const days = daysUntil(birthDate.month, birthDate.day);
+        if (days <= 30) {
+          birthdays.push({
+            ...member,
+            eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
+            daysUntil: days,
+          });
         }
       }
-      
-      if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
-        const anniversaryDate = extractMonthDay(member.weddingAnniversary);
-        if (anniversaryDate) {
-          const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
-          if (days <= 30) {
-            anniversaries.push({
-              ...member,
-              eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
-              daysUntil: days,
-            });
-          }
+    }
+    
+    // Process wedding anniversary
+    if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
+      const anniversaryDate = extractMonthDay(member.weddingAnniversary);
+      if (anniversaryDate) {
+        const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
+        if (days <= 30) {
+          anniversaries.push({
+            ...member,
+            eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
+            daysUntil: days,
+          });
         }
       }
-    });
-    
-    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
-    anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
-    
-    setUpcomingBirthdays(birthdays);
-    setUpcomingAnniversaries(anniversaries);
-  };
+    }
+  });
+  
+  // Sort by days until event (0 days = today comes first)
+  birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+  anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
+  
+  setUpcomingBirthdays(birthdays);
+  setUpcomingAnniversaries(anniversaries);
+};
 
   useEffect(() => {
     if (isAuthenticated && members.length > 0) {
