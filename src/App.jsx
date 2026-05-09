@@ -51,6 +51,7 @@ function App() {
   const [importData, setImportData] = useState('');
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', gender: '',
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
@@ -60,6 +61,8 @@ function App() {
 
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
+
+
 
   // Check authentication and load data on mount
   useEffect(() => {
@@ -139,6 +142,53 @@ function App() {
     setActiveView('members');
     toast.success('Logged out successfully');
   };
+
+  const fetchUpcomingEvents = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/calendar/upcoming`, getAuthHeaders());
+    setUpcomingEvents(response.data);
+  } catch (error) {
+    console.error('Error fetching upcoming events:', error);
+  }
+};
+
+useEffect(() => {
+  if (isAuthenticated) {
+    fetchUpcomingEvents();
+  }
+}, [isAuthenticated]);
+
+const formatEventDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    weekday: 'short'
+  });
+};
+
+const getDaysUntilEvent = (dateString) => {
+  const eventDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  eventDate.setHours(0, 0, 0, 0);
+  
+  const diffTime = eventDate - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+const getEventIcon = (eventType) => {
+  switch (eventType) {
+    case 'service': return '⛪';
+    case 'prayer': return '🙏';
+    case 'fellowship': return '🤝';
+    case 'outreach': return '💪';
+    case 'wedding': return '💒';
+    case 'baptism': return '💧';
+    default: return '📌';
+  }
+};
 
   const getMonthName = (monthNumber) => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
@@ -674,96 +724,147 @@ function App() {
             </div>
             
             {/* Upcoming Events Section */}
-            {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
-                  <CalendarIcon className="w-6 h-6 text-purple-600" />
-                  Upcoming Celebrations (Next 30 Days)
-                </h2>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {upcomingBirthdays.length > 0 && (
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
-                      <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
-                        <h3 className="font-bold flex items-center gap-2">
-                          <Cake className="w-5 h-5" />
-                          🎂 Upcoming Birthdays ({upcomingBirthdays.length}) - Next 30 Days
-                        </h3>
+{(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0 || upcomingEvents.length > 0) && (
+  <div className="mb-8">
+    <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
+      <CalendarIcon className="w-6 h-6 text-purple-600" />
+      Upcoming Events & Celebrations (Next 30 Days)
+    </h2>
+    
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      {/* Upcoming Church Events */}
+      {upcomingEvents.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-blue-500">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3">
+            <h3 className="font-bold flex items-center gap-2">
+              <CalendarDays className="w-5 h-5" />
+              📅 Upcoming Church Events ({upcomingEvents.length}) - Next 30 Days
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {upcomingEvents.map((event, idx) => {
+              const daysUntil = getDaysUntilEvent(event.eventDate);
+              return (
+                <div key={idx} className="p-4 hover:bg-blue-50 transition-colors">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{getEventIcon(event.eventType)}</span>
+                        <p className="font-semibold text-gray-900">{event.title}</p>
                       </div>
-                      <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                        {upcomingBirthdays.map((member, idx) => (
-                          <div key={idx} className="p-4 hover:bg-pink-50 transition-colors">
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {member.firstName} {member.lastName}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
-                                </p>
-                                {member.phoneNumber && (
-                                  <p className="text-xs text-gray-400 mt-1">
-                                    📞 {member.phoneNumber}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
-                                  {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
-                                  <Cake className="w-3 h-3" /> {member.eventDateFormatted}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span>📅 {formatEventDate(event.eventDate)}</span>
+                        {event.eventTime && <span>⏰ {event.eventTime}</span>}
+                        {event.location && <span>📍 {event.location}</span>}
+                      </p>
+                      {event.description && (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{event.description}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                        daysUntil === 0 ? 'bg-green-100 text-green-800' :
+                        daysUntil <= 7 ? 'bg-red-100 text-red-800' :
+                        daysUntil <= 14 ? 'bg-orange-100 text-orange-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {daysUntil === 0 ? '🎉 TODAY!' : `in ${daysUntil} days`}
                       </div>
                     </div>
-                  )}
-                  
-                  {upcomingAnniversaries.length > 0 && (
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
-                      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
-                        <h3 className="font-bold flex items-center gap-2">
-                          <Gift className="w-5 h-5" />
-                          💍 Upcoming Anniversaries ({upcomingAnniversaries.length}) - Next 30 Days
-                        </h3>
-                      </div>
-                      <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                        {upcomingAnniversaries.map((member, idx) => (
-                          <div key={idx} className="p-4 hover:bg-purple-50 transition-colors">
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {member.firstName} {member.lastName}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
-                                </p>
-                                {member.phoneNumber && (
-                                  <p className="text-xs text-gray-400 mt-1">
-                                    📞 {member.phoneNumber}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
-                                  {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
-                                  <Gift className="w-3 h-3" /> {member.eventDateFormatted}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Upcoming Birthdays */}
+      {upcomingBirthdays.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
+          <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
+            <h3 className="font-bold flex items-center gap-2">
+              <Cake className="w-5 h-5" />
+              🎂 Upcoming Birthdays ({upcomingBirthdays.length}) - Next 30 Days
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {upcomingBirthdays.map((member, idx) => (
+              <div key={idx} className="p-4 hover:bg-pink-50 transition-colors">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {member.firstName} {member.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                    </p>
+                    {member.phoneNumber && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        📞 {member.phoneNumber}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                      {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
                     </div>
-                  )}
+                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                      <Cake className="w-3 h-3" /> {member.eventDateFormatted}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Upcoming Anniversaries */}
+      {upcomingAnniversaries.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
+            <h3 className="font-bold flex items-center gap-2">
+              <Gift className="w-5 h-5" />
+              💍 Upcoming Anniversaries ({upcomingAnniversaries.length}) - Next 30 Days
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {upcomingAnniversaries.map((member, idx) => (
+              <div key={idx} className="p-4 hover:bg-purple-50 transition-colors">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {member.firstName} {member.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                    </p>
+                    {member.phoneNumber && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        📞 {member.phoneNumber}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                      {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                      <Gift className="w-3 h-3" /> {member.eventDateFormatted}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+    </div>
+  </div>
+)}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
