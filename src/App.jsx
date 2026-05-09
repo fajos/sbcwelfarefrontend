@@ -9,7 +9,7 @@ import {
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, MessageCircle
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
 } from 'lucide-react';
 
 
@@ -585,15 +585,6 @@ function App() {
                 </button>
               )}
 
-              {userRole === 'admin' && (
-                <button
-                  onClick={() => setShowMessageWizard(true)}
-                  className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-pink-700 hover:to-purple-700 transition shadow-md text-sm md:text-base"
-                >
-                  <MessageCircle className="w-4 h-4 md:w-5 md:h-5" /> Send Wishes
-                </button>
-              )}
-
               {(userRole === 'admin' || userRole === 'editor') && (
                 <button
                   onClick={() => { setIsImportOpen(true); resetForm(); }}
@@ -939,15 +930,6 @@ function App() {
           )}
         </div>
       </main>
-
-      {showMessageWizard && (
-        <MessageWizard
-          members={members}
-          upcomingBirthdays={upcomingBirthdays}
-          upcomingAnniversaries={upcomingAnniversaries}
-          onClose={() => setShowMessageWizard(false)}
-        />
-      )}
 
       {/* Add/Edit Member Modal */}
       {isFormOpen && (
