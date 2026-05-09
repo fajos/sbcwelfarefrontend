@@ -3,6 +3,7 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Login from './Login';
 import AdminDashboard from './AdminDashboard';
+import MessageWizard from './MessageWizard';
 import { 
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
@@ -10,6 +11,7 @@ import {
   GraduationCap, ChevronLeft, ChevronRight,
   Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
 } from 'lucide-react';
+
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -48,6 +50,7 @@ function App() {
   const [importData, setImportData] = useState('');
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
+  const [showMessageWizard, setShowMessageWizard] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', gender: '',
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
@@ -581,7 +584,16 @@ function App() {
                   <Shield className="w-4 h-4 md:w-5 md:h-5" /> Admin Panel
                 </button>
               )}
-              
+
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setShowMessageWizard(true)}
+                  className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-pink-700 hover:to-purple-700 transition shadow-md text-sm md:text-base"
+                >
+                  <MessageCircle className="w-4 h-4 md:w-5 md:h-5" /> Send Wishes
+                </button>
+              )}
+
               {(userRole === 'admin' || userRole === 'editor') && (
                 <button
                   onClick={() => { setIsImportOpen(true); resetForm(); }}
@@ -927,6 +939,15 @@ function App() {
           )}
         </div>
       </main>
+
+      {showMessageWizard && (
+        <MessageWizard
+          members={members}
+          upcomingBirthdays={upcomingBirthdays}
+          upcomingAnniversaries={upcomingAnniversaries}
+          onClose={() => setShowMessageWizard(false)}
+        />
+      )}
 
       {/* Add/Edit Member Modal */}
       {isFormOpen && (
