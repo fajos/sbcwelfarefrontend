@@ -191,7 +191,6 @@ function App() {
         }
       }
     }
-    console.log('Parsed result:', result);
     return null;
   };
 
