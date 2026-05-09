@@ -3,14 +3,14 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Login from './Login';
 import AdminDashboard from './AdminDashboard';
+import ChurchCalendar from './components/ChurchCalendar';
 import { 
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays
 } from 'lucide-react';
-
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -40,6 +40,8 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [activeView, setActiveView] = useState('members'); // 'members' or 'calendar'
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -49,7 +51,6 @@ function App() {
   const [importData, setImportData] = useState('');
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
-  const [showMessageWizard, setShowMessageWizard] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', gender: '',
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
@@ -134,10 +135,11 @@ function App() {
     setUserRole(null);
     setMembers([]);
     setShowAdminDashboard(false);
+    setShowCalendar(false);
+    setActiveView('members');
     toast.success('Logged out successfully');
   };
 
-  
   const getMonthName = (monthNumber) => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -147,24 +149,23 @@ function App() {
   const extractMonthDay = (dateString) => {
     if (!dateString || dateString === '-') return null;
     
-    console.log('Parsing date:', dateString);
-
     const patterns = [
       { regex: /(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(?:\d{4})?/i },
       { regex: /(\d{1,2})\/(\d{1,2})(?:\/\d{4})?/ },
       { regex: /(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i }
     ];
     
+    const monthMap = {
+      january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
+      april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+      august: 7, aug: 7, september: 8, sep: 8, october: 9, oct: 9,
+      november: 10, nov: 10, december: 11, dec: 11
+    };
+    
     for (const pattern of patterns) {
       const match = dateString.match(pattern.regex);
       if (match) {
         if (pattern.regex.toString().includes('january')) {
-          const monthMap = {
-            january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
-            april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
-            august: 7, aug: 7, september: 8, sep: 8, october: 9, oct: 9,
-            november: 10, nov: 10, december: 11, dec: 11
-          };
           const month = monthMap[match[1].toLowerCase()];
           const day = parseInt(match[2]);
           if (month !== undefined && day >= 1 && day <= 31) {
@@ -178,12 +179,6 @@ function App() {
           }
         } else if (pattern.regex.toString().includes('st|nd|rd|th')) {
           const day = parseInt(match[1]);
-          const monthMap = {
-            january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
-            april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
-            august: 7, aug: 7, september: 8, sep: 8, october: 9, oct: 9,
-            november: 10, nov: 10, december: 11, dec: 11
-          };
           const month = monthMap[match[2].toLowerCase()];
           if (month !== undefined && day >= 1 && day <= 31) {
             return { month, day };
@@ -195,68 +190,64 @@ function App() {
   };
 
   const calculateUpcomingEvents = (membersList) => {
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  
-  const birthdays = [];
-  const anniversaries = [];
-  
-  const daysUntil = (targetMonth, targetDay) => {
-    const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
-    const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
+    const today = new Date();
+    const currentYear = today.getFullYear();
     
-    // Set hours to 0 for accurate day comparison
-    targetDateThisYear.setHours(0, 0, 0, 0);
-    targetDateNextYear.setHours(0, 0, 0, 0);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const birthdays = [];
+    const anniversaries = [];
     
-    if (targetDateThisYear >= todayStart) {
-      return Math.ceil((targetDateThisYear - todayStart) / (1000 * 60 * 60 * 24));
-    } else {
-      return Math.ceil((targetDateNextYear - todayStart) / (1000 * 60 * 60 * 24));
-    }
-  };
+    const daysUntil = (targetMonth, targetDay) => {
+      const targetDateThisYear = new Date(currentYear, targetMonth, targetDay);
+      const targetDateNextYear = new Date(currentYear + 1, targetMonth, targetDay);
+      
+      targetDateThisYear.setHours(0, 0, 0, 0);
+      targetDateNextYear.setHours(0, 0, 0, 0);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      if (targetDateThisYear >= todayStart) {
+        return Math.ceil((targetDateThisYear - todayStart) / (1000 * 60 * 60 * 24));
+      } else {
+        return Math.ceil((targetDateNextYear - todayStart) / (1000 * 60 * 60 * 24));
+      }
+    };
     
     membersList.forEach(member => {
-    // Process birthday
-    if (member.dateOfBirth && member.dateOfBirth !== '-') {
-      const birthDate = extractMonthDay(member.dateOfBirth);
-      if (birthDate) {
-        const days = daysUntil(birthDate.month, birthDate.day);
-        if (days <= 30) {
-          birthdays.push({
-            ...member,
-            eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
-            daysUntil: days,
-          });
+      if (member.dateOfBirth && member.dateOfBirth !== '-') {
+        const birthDate = extractMonthDay(member.dateOfBirth);
+        if (birthDate) {
+          const days = daysUntil(birthDate.month, birthDate.day);
+          if (days <= 30) {
+            birthdays.push({
+              ...member,
+              eventDateFormatted: `${getMonthName(birthDate.month)} ${birthDate.day}`,
+              daysUntil: days,
+            });
+          }
         }
       }
-    }
+      
+      if (member.maritalStatus === 'Married' && member.weddingAnniversary && member.weddingAnniversary !== '-') {
+        const anniversaryDate = extractMonthDay(member.weddingAnniversary);
+        if (anniversaryDate) {
+          const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
+          if (days <= 30) {
+            anniversaries.push({
+              ...member,
+              eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
+              daysUntil: days,
+            });
+          }
+        }
+      }
+    });
     
-    // Process wedding anniversary
-    if (member.weddingAnniversary && member.weddingAnniversary !== '-' && member.maritalStatus === 'Married') {
-      const anniversaryDate = extractMonthDay(member.weddingAnniversary);
-      if (anniversaryDate) {
-        const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
-        if (days <= 30) {
-          anniversaries.push({
-            ...member,
-            eventDateFormatted: `${getMonthName(anniversaryDate.month)} ${anniversaryDate.day}`,
-            daysUntil: days,
-          });
-        }
-      }
-    }
-  });
-  
-  // Sort by days until event (0 days = today comes first)
-  birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
-  anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
-  
-  setUpcomingBirthdays(birthdays);
-  setUpcomingAnniversaries(anniversaries);
-};
+    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+    anniversaries.sort((a, b) => a.daysUntil - b.daysUntil);
+    
+    setUpcomingBirthdays(birthdays);
+    setUpcomingAnniversaries(anniversaries);
+  };
 
   useEffect(() => {
     if (isAuthenticated && members.length > 0) {
@@ -583,6 +574,28 @@ function App() {
               </div>
             </div>
             <div className="flex gap-2 md:gap-3 flex-wrap">
+              {/* View Toggle Buttons */}
+              <button
+                onClick={() => setActiveView('members')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'members'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <Users className="w-4 h-4 md:w-5 md:h-5" /> Members
+              </button>
+              <button
+                onClick={() => setActiveView('calendar')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'calendar'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <CalendarDays className="w-4 h-4 md:w-5 md:h-5" /> Calendar
+              </button>
+              
               {/* Admin Panel Button */}
               {userRole === 'admin' && (
                 <button
@@ -592,37 +605,43 @@ function App() {
                   <Shield className="w-4 h-4 md:w-5 md:h-5" /> Admin Panel
                 </button>
               )}
-
-              {(userRole === 'admin' || userRole === 'editor') && (
-                <button
-                  onClick={() => { setIsImportOpen(true); resetForm(); }}
-                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
-                >
-                  <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
-                </button>
+              
+              {/* Member Management Buttons (only show when members view is active) */}
+              {activeView === 'members' && (
+                <>
+                  {(userRole === 'admin' || userRole === 'editor') && (
+                    <button
+                      onClick={() => { setIsImportOpen(true); resetForm(); }}
+                      className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
+                    >
+                      <Upload className="w-4 h-4 md:w-5 md:h-5" /> Bulk Import
+                    </button>
+                  )}
+                  <button
+                    onClick={exportToCSV}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
+                  >
+                    <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
+                  </button>
+                  {(userRole === 'admin' || userRole === 'editor') && (
+                    <button
+                      onClick={() => { setIsFormOpen(true); resetForm(); }}
+                      className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                    >
+                      <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
+                    </button>
+                  )}
+                  {userRole === 'admin' && (
+                    <button
+                      onClick={resetDatabase}
+                      className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
+                    >
+                      <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+                    </button>
+                  )}
+                </>
               )}
-              <button
-                onClick={exportToCSV}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
-              >
-                <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
-              </button>
-              {(userRole === 'admin' || userRole === 'editor') && (
-                <button
-                  onClick={() => { setIsFormOpen(true); resetForm(); }}
-                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
-                >
-                  <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
-                </button>
-              )}
-              {userRole === 'admin' && (
-                <button
-                  onClick={resetDatabase}
-                  className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
-                >
-                  <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
-                </button>
-              )}
+              
               <button
                 onClick={handleLogout}
                 className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-gray-700 hover:to-gray-800 transition shadow-md text-sm md:text-base"
@@ -637,306 +656,316 @@ function App() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
         
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6">
-          <p className="text-gray-700">
-            Welcome, <span className="font-semibold">{currentUser?.username}</span>! 
-            You are logged in as <span className="font-semibold text-purple-600">{userRole}</span>.
-            {members.length > 0 && <span className="ml-2 text-gray-500">({members.length} members loaded)</span>}
-          </p>
-        </div>
-        
-        {/* Upcoming Events Section */}
-        {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
-              <CalendarIcon className="w-6 h-6 text-purple-600" />
-              Upcoming Celebrations (Next 30 Days)
-            </h2>
+        {/* Calendar View */}
+        {activeView === 'calendar' && (
+          <ChurchCalendar userRole={userRole} />
+        )}
+
+        {/* Members View */}
+        {activeView === 'members' && (
+          <>
+            {/* Welcome Banner */}
+            <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6">
+              <p className="text-gray-700">
+                Welcome, <span className="font-semibold">{currentUser?.username}</span>! 
+                You are logged in as <span className="font-semibold text-purple-600">{userRole}</span>.
+                {members.length > 0 && <span className="ml-2 text-gray-500">({members.length} members loaded)</span>}
+              </p>
+            </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {upcomingBirthdays.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
-                  <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
-                    <h3 className="font-bold flex items-center gap-2">
-                      <Cake className="w-5 h-5" />
-                      🎂 Upcoming Birthdays ({upcomingBirthdays.length}) - Next 30 Days
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {upcomingBirthdays.map((member, idx) => (
-                      <div key={idx} className="p-4 hover:bg-pink-50 transition-colors">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {member.firstName} {member.lastName}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
-                            </p>
-                            {member.phoneNumber && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                📞 {member.phoneNumber}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
-                              {member.daysUntil === 0 ? '🎉 HAPPY BIRTHDAY!' : `in ${member.daysUntil} days`}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
-                              <Cake className="w-3 h-3" /> {member.eventDateFormatted}
-                            </p>
-                          </div>
-                        </div>
+            {/* Upcoming Events Section */}
+            {(upcomingBirthdays.length > 0 || upcomingAnniversaries.length > 0) && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-purple-800 bg-clip-text text-transparent mb-4 flex items-center gap-2">
+                  <CalendarIcon className="w-6 h-6 text-purple-600" />
+                  Upcoming Celebrations (Next 30 Days)
+                </h2>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {upcomingBirthdays.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-pink-500">
+                      <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-3">
+                        <h3 className="font-bold flex items-center gap-2">
+                          <Cake className="w-5 h-5" />
+                          🎂 Upcoming Birthdays ({upcomingBirthdays.length}) - Next 30 Days
+                        </h3>
                       </div>
-                    ))}
-                  </div>
+                      <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                        {upcomingBirthdays.map((member, idx) => (
+                          <div key={idx} className="p-4 hover:bg-pink-50 transition-colors">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div>
+                                <p className="font-semibold text-gray-900">
+                                  {member.firstName} {member.lastName}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                                </p>
+                                {member.phoneNumber && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    📞 {member.phoneNumber}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                                  {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                                  <Cake className="w-3 h-3" /> {member.eventDateFormatted}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {upcomingAnniversaries.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
+                      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
+                        <h3 className="font-bold flex items-center gap-2">
+                          <Gift className="w-5 h-5" />
+                          💍 Upcoming Anniversaries ({upcomingAnniversaries.length}) - Next 30 Days
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                        {upcomingAnniversaries.map((member, idx) => (
+                          <div key={idx} className="p-4 hover:bg-purple-50 transition-colors">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div>
+                                <p className="font-semibold text-gray-900">
+                                  {member.firstName} {member.lastName}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
+                                </p>
+                                {member.phoneNumber && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    📞 {member.phoneNumber}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
+                                  {member.daysUntil === 0 ? '🎉 TODAY!' : `in ${member.daysUntil} days`}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
+                                  <Gift className="w-3 h-3" /> {member.eventDateFormatted}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-xs md:text-sm">Total Members</p>
+                    <p className="text-2xl md:text-3xl font-bold text-blue-800">{stats.total}</p>
+                  </div>
+                  <Users className="w-8 h-8 md:w-10 md:h-10 text-blue-600 opacity-75" />
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-purple-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-xs md:text-sm">Foundation Class</p>
+                    <p className="text-2xl md:text-3xl font-bold text-purple-800">{stats.foundationComplete}</p>
+                  </div>
+                  <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-purple-600 opacity-75" />
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-yellow-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-xs md:text-sm">Church Units</p>
+                    <p className="text-2xl md:text-3xl font-bold text-yellow-800">{stats.uniqueUnits}</p>
+                  </div>
+                  <Briefcase className="w-8 h-8 md:w-10 md:h-10 text-yellow-600 opacity-75" />
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-pink-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-xs md:text-sm">Married Members</p>
+                    <p className="text-2xl md:text-3xl font-bold text-pink-800">{stats.married}</p>
+                  </div>
+                  <Heart className="w-8 h-8 md:w-10 md:h-10 text-pink-600 opacity-75" />
+                </div>
+              </div>
+            </div>
+
+            {/* Loading Indicator */}
+            {isLoading && members.length === 0 && (
+              <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg mb-4 text-center">
+                Loading members from database...
+              </div>
+            )}
+
+            {/* Search Bar */}
+            <div className="bg-white rounded-lg shadow-md mb-6 p-4">
+              <div className="flex gap-3 md:gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, phone number, or church unit..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
+                  />
+                </div>
+                <button
+                  onClick={() => loadMembersData(true)}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition text-sm md:text-base"
+                >
+                  <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Members Table */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200">
+                <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
+                <div 
+                  ref={topScrollBarRef}
+                  className="overflow-x-auto"
+                >
+                  <div style={{ width: '1400px', height: '10px' }}></div>
+                </div>
+              </div>
               
-              {upcomingAnniversaries.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md overflow-hidden border-t-4 border-purple-500">
-                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-3">
-                    <h3 className="font-bold flex items-center gap-2">
-                      <Gift className="w-5 h-5" />
-                      💍 Upcoming Anniversaries ({upcomingAnniversaries.length}) - Next 30 Days
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {upcomingAnniversaries.map((member, idx) => (
-                      <div key={idx} className="p-4 hover:bg-purple-50 transition-colors">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {member.firstName} {member.lastName}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {member.churchUnit ? `📌 ${member.churchUnit}` : 'No unit assigned'}
-                            </p>
-                            {member.phoneNumber && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                📞 {member.phoneNumber}
-                              </p>
+              <div 
+                ref={bottomScrollBarRef}
+                className="overflow-x-auto"
+              >
+                <table className="min-w-[1400px] w-full">
+                  <thead className="bg-gradient-to-r from-blue-800 via-purple-800 to-yellow-700 text-white sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">First Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Last Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Gender</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Phone</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">WhatsApp</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Date of Birth</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Marital Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Wedding Anniversary</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Address</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Occupation</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Foundation Class</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Church Unit</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredMembers.map((member, index) => (
+                      <tr key={member._id} className="hover:bg-blue-50 transition-colors duration-200">
+                        <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                          {member.gender && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {member.gender}
+                            </span>
+                          )}
+                          {!member.gender && '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                          {member.phoneNumber && (
+                            <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                              <Phone className="w-3 h-3" /> {member.phoneNumber}
+                            </a>
+                          )}
+                          {!member.phoneNumber && '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                          {member.whatsappNumber && (
+                            <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
+                              {member.whatsappNumber}
+                            </a>
+                          )}
+                          {!member.whatsappNumber && '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                          {member.maritalStatus && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {member.maritalStatus}
+                            </span>
+                          )}
+                          {!member.maritalStatus && '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+                          {member.residentialAddress || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+                        <td className="px-4 py-3 text-sm border-r border-gray-200">
+                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                          {member.churchUnit && (
+                            <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                              {member.churchUnit}
+                            </span>
+                          )}
+                          {!member.churchUnit && '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            {(userRole === 'admin' || userRole === 'editor') && (
+                              <button
+                                onClick={() => handleEdit(member)}
+                                className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                                title="Edit Member"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {userRole === 'admin' && (
+                              <button
+                                onClick={() => handleDelete(member._id)}
+                                className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Member"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             )}
                           </div>
-                          <div className="text-right">
-                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${getEventColor(member.daysUntil)}`}>
-                              {member.daysUntil === 0 ? '🎉 HAPPY ANNIVERSARY!' : `in ${member.daysUntil} days`}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
-                              <Gift className="w-3 h-3" /> {member.eventDateFormatted}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
+                  </tbody>
+                </table>
+              </div>
+              
+              {filteredMembers.length === 0 && !isLoading && (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+                  <p className="text-lg font-medium">No members found</p>
+                  <p className="text-sm">Click "Add Member" to get started.</p>
                 </div>
               )}
             </div>
-          </div>
+          </>
         )}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-blue-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-xs md:text-sm">Total Members</p>
-                <p className="text-2xl md:text-3xl font-bold text-blue-800">{stats.total}</p>
-              </div>
-              <Users className="w-8 h-8 md:w-10 md:h-10 text-blue-600 opacity-75" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-purple-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-xs md:text-sm">Foundation Class</p>
-                <p className="text-2xl md:text-3xl font-bold text-purple-800">{stats.foundationComplete}</p>
-              </div>
-              <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-purple-600 opacity-75" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-yellow-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-xs md:text-sm">Church Units</p>
-                <p className="text-2xl md:text-3xl font-bold text-yellow-800">{stats.uniqueUnits}</p>
-              </div>
-              <Briefcase className="w-8 h-8 md:w-10 md:h-10 text-yellow-600 opacity-75" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-pink-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-xs md:text-sm">Married Members</p>
-                <p className="text-2xl md:text-3xl font-bold text-pink-800">{stats.married}</p>
-              </div>
-              <Heart className="w-8 h-8 md:w-10 md:h-10 text-pink-600 opacity-75" />
-            </div>
-          </div>
-        </div>
-
-        {/* Loading Indicator */}
-        {isLoading && members.length === 0 && (
-          <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg mb-4 text-center">
-            Loading members from database...
-          </div>
-        )}
-
-        {/* Search Bar */}
-        <div className="bg-white rounded-lg shadow-md mb-6 p-4">
-          <div className="flex gap-3 md:gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
-              <input
-                type="text"
-                placeholder="Search by name, phone number, or church unit..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
-              />
-            </div>
-            <button
-              onClick={() => loadMembersData(true)}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition text-sm md:text-base"
-            >
-              <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Members Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-gray-50 border-b border-gray-200">
-            <div className="text-xs text-gray-500 text-center py-1">← Scroll horizontally →</div>
-            <div 
-              ref={topScrollBarRef}
-              className="overflow-x-auto"
-            >
-              <div style={{ width: '1400px', height: '10px' }}></div>
-            </div>
-          </div>
-          
-          <div 
-            ref={bottomScrollBarRef}
-            className="overflow-x-auto"
-          >
-            <table className="min-w-[1400px] w-full">
-              <thead className="bg-gradient-to-r from-blue-800 via-purple-800 to-yellow-700 text-white sticky top-0 z-10">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">First Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Last Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Gender</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">WhatsApp</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Date of Birth</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Marital Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Wedding Anniversary</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Occupation</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Foundation Class</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Church Unit</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredMembers.map((member, index) => (
-                  <tr key={member._id} className="hover:bg-blue-50 transition-colors duration-200">
-                    <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.gender && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.gender}
-                        </span>
-                      )}
-                      {!member.gender && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.phoneNumber && (
-                        <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          <Phone className="w-3 h-3" /> {member.phoneNumber}
-                        </a>
-                      )}
-                      {!member.phoneNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.whatsappNumber && (
-                        <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                          {member.whatsappNumber}
-                        </a>
-                      )}
-                      {!member.whatsappNumber && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.maritalStatus && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {member.maritalStatus}
-                        </span>
-                      )}
-                      {!member.maritalStatus && '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
-                      {member.residentialAddress || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
-                    <td className="px-4 py-3 text-sm border-r border-gray-200">
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                      {member.churchUnit && (
-                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                          {member.churchUnit}
-                        </span>
-                      )}
-                      {!member.churchUnit && '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {(userRole === 'admin' || userRole === 'editor') && (
-                          <button
-                            onClick={() => handleEdit(member)}
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                            title="Edit Member"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        )}
-                        {userRole === 'admin' && (
-                          <button
-                            onClick={() => handleDelete(member._id)}
-                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                            title="Delete Member"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {filteredMembers.length === 0 && !isLoading && (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
-              <p className="text-lg font-medium">No members found</p>
-              <p className="text-sm">Click "Add Member" to get started.</p>
-            </div>
-          )}
-        </div>
       </main>
 
       {/* Add/Edit Member Modal */}
