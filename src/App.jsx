@@ -3,7 +3,6 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Login from './Login';
 import AdminDashboard from './AdminDashboard';
-import MessageWizard from './MessageWizard';
 import { 
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
@@ -138,8 +137,6 @@ function App() {
     toast.success('Logged out successfully');
   };
 
-  // Rest of your existing functions (getMonthName, extractMonthDay, calculateUpcomingEvents, etc.)
-  // ... (keep all your existing functions here)
   
   const getMonthName = (monthNumber) => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
