@@ -40,7 +40,15 @@ function ChurchCalendar({ userRole }) {
     eventDate: '',
     eventTime: '',
     eventType: 'service',
-    location: ''
+    location: '',
+    isRecurring: false,
+    recurrence: {
+      pattern: 'none',
+      interval: 1,
+      dayOfWeek: 0,
+      nth: 1,
+      endDate: ''
+    }
   });
 
   useEffect(() => {
@@ -49,7 +57,11 @@ function ChurchCalendar({ userRole }) {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`${API_URL}/calendar`, getAuthHeaders());
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth() + 6, 0).toISOString();
+
+      const response = await axios.get(`${API_URL}/calendar?start=${start}&end=${end}`, getAuthHeaders());
       const formattedEvents = response.data.map(event => ({
         id: event._id,
         title: event.title,
@@ -58,7 +70,9 @@ function ChurchCalendar({ userRole }) {
         desc: event.description,
         type: event.eventType,
         location: event.location,
-        time: event.eventTime
+        time: event.eventTime,
+        isRecurring: event.isRecurring,
+        recurrence: event.recurrence
       }));
       setEvents(formattedEvents);
     } catch (error) {
@@ -106,7 +120,15 @@ function ChurchCalendar({ userRole }) {
       eventDate: '',
       eventTime: '',
       eventType: 'service',
-      location: ''
+      location: '',
+      isRecurring: false,
+      recurrence: {
+        pattern: 'none',
+        interval: 1,
+        dayOfWeek: 0,
+        nth: 1,
+        endDate: ''
+      }
     });
     setEditingEvent(null);
   };
@@ -116,7 +138,7 @@ function ChurchCalendar({ userRole }) {
       const date = new Date(slotInfo.start);
       setFormData({
         ...formData,
-        eventDate: date.toISOString().split('T')[0]
+        eventDate: format(date, 'yyyy-MM-dd')
       });
       setShowModal(true);
     }
@@ -127,10 +149,18 @@ function ChurchCalendar({ userRole }) {
     setFormData({
       title: event.title,
       description: event.desc || '',
-      eventDate: event.start.toISOString().split('T')[0],
+      eventDate: format(event.start, 'yyyy-MM-dd'),
       eventTime: event.time || '',
       eventType: event.type || 'service',
-      location: event.location || ''
+      location: event.location || '',
+      isRecurring: event.isRecurring || false,
+      recurrence: event.recurrence || {
+        pattern: 'none',
+        interval: 1,
+        dayOfWeek: 0,
+        nth: 1,
+        endDate: ''
+      }
     });
     setShowModal(true);
   };
@@ -250,9 +280,101 @@ function ChurchCalendar({ userRole }) {
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   className="w-full border rounded-lg p-2"
-                  rows="3"
+                  rows="2"
                 />
               </div>
+
+              <div className="mb-4 border-t pt-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isRecurring}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      isRecurring: e.target.checked,
+                      recurrence: { ...formData.recurrence, pattern: e.target.checked ? 'weekly' : 'none' }
+                    })}
+                    className="w-4 h-4 rounded text-blue-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Recurring Event</span>
+                </label>
+              </div>
+
+              {formData.isRecurring && (
+                <div className="bg-gray-50 p-3 rounded-lg mb-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase">Repeat Pattern</label>
+                    <select
+                      value={formData.recurrence.pattern}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        recurrence: { ...formData.recurrence, pattern: e.target.value }
+                      })}
+                      className="w-full border rounded p-1.5 mt-1 text-sm"
+                    >
+                      <option value="daily">Every Day</option>
+                      <option value="weekly">Every Week</option>
+                      <option value="monthly">Every Month</option>
+                      <option value="nth_day_of_week">Specific Day of Month</option>
+                    </select>
+                  </div>
+
+                  {formData.recurrence.pattern === 'nth_day_of_week' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase">Occurrence</label>
+                        <select
+                          value={formData.recurrence.nth}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            recurrence: { ...formData.recurrence, nth: parseInt(e.target.value) }
+                          })}
+                          className="w-full border rounded p-1.5 mt-1 text-sm"
+                        >
+                          <option value="1">First</option>
+                          <option value="2">Second</option>
+                          <option value="3">Third</option>
+                          <option value="4">Fourth</option>
+                          <option value="5">Last</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase">Day</label>
+                        <select
+                          value={formData.recurrence.dayOfWeek}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            recurrence: { ...formData.recurrence, dayOfWeek: parseInt(e.target.value) }
+                          })}
+                          className="w-full border rounded p-1.5 mt-1 text-sm"
+                        >
+                          <option value="0">Sunday</option>
+                          <option value="1">Monday</option>
+                          <option value="2">Tuesday</option>
+                          <option value="3">Wednesday</option>
+                          <option value="4">Thursday</option>
+                          <option value="5">Friday</option>
+                          <option value="6">Saturday</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase">Ends On (Optional)</label>
+                    <input
+                      type="date"
+                      value={formData.recurrence.endDate}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        recurrence: { ...formData.recurrence, endDate: e.target.value }
+                      })}
+                      className="w-full border rounded p-1.5 mt-1 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg flex-1">
                   {editingEvent ? 'Update' : 'Create'} Event
