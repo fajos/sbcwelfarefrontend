@@ -47,6 +47,7 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState('');
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
@@ -106,6 +107,7 @@ function App() {
       cachedMembers = response.data;
       lastFetchTime = now;
       setMembers(response.data);
+      setSelectedMemberIds([]);
       if (response.data.length > 0) {
         toast.success(`${response.data.length} members loaded`);
       }
@@ -381,6 +383,47 @@ const getEventIcon = (eventType) => {
       churchUnit: member.churchUnit || ''
     });
     setIsFormOpen(true);
+  };
+
+  const toggleSelection = (id) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllSelection = () => {
+    if (selectedMemberIds.length === filteredMembers.length && filteredMembers.length > 0) {
+      setSelectedMemberIds([]);
+    } else {
+      setSelectedMemberIds(filteredMembers.map(m => m._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (userRole !== 'admin') {
+      toast.error('Only administrators can delete members');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${selectedMemberIds.length} members? This action cannot be undone.`)) {
+      try {
+        setIsLoading(true);
+        const headers = getAuthHeaders();
+        await Promise.all(selectedMemberIds.map(id =>
+          axios.delete(`${API_URL}/members/${id}`, headers)
+        ));
+        toast.success(`${selectedMemberIds.length} members deleted successfully`);
+        setSelectedMemberIds([]);
+        cachedMembers = null;
+        await loadMembersData(true);
+      } catch (error) {
+        console.error('Error deleting members:', error);
+        toast.error('Error deleting some members');
+        await loadMembersData(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   const handleDelete = async (id) => {
@@ -915,8 +958,8 @@ const getEventIcon = (eventType) => {
 
             {/* Search Bar */}
             <div className="bg-white rounded-lg shadow-md mb-6 p-4">
-              <div className="flex gap-3 md:gap-4">
-                <div className="flex-1 relative">
+              <div className="flex gap-3 md:gap-4 flex-wrap items-center">
+                <div className="flex-1 min-w-[300px] relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
                   <input
                     type="text"
@@ -926,6 +969,43 @@ const getEventIcon = (eventType) => {
                     className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                   />
                 </div>
+
+                {selectedMemberIds.length > 0 && (
+                  <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                    <span className="text-blue-800 font-bold">{selectedMemberIds.length} selected</span>
+                    <div className="flex gap-2">
+                      {selectedMemberIds.length === 1 && (userRole === 'admin' || userRole === 'editor') && (
+                        <button
+                          onClick={() => {
+                            const member = members.find(m => m._id === selectedMemberIds[0]);
+                            handleEdit(member);
+                          }}
+                          className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 transition"
+                          title="Edit Selected"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {userRole === 'admin' && (
+                        <button
+                          onClick={handleBulkDelete}
+                          className="bg-red-600 text-white p-1.5 rounded hover:bg-red-700 transition"
+                          title="Delete Selected"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSelectedMemberIds([])}
+                        className="text-gray-500 hover:text-gray-700 p-1.5"
+                        title="Clear Selection"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => loadMembersData(true)}
                   className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition text-sm md:text-base"
@@ -943,7 +1023,7 @@ const getEventIcon = (eventType) => {
                   ref={topScrollBarRef}
                   className="overflow-x-auto"
                 >
-                  <div style={{ width: '1400px', height: '10px' }}></div>
+                  <div style={{ width: '1450px', height: '10px' }}></div>
                 </div>
               </div>
               
@@ -951,9 +1031,17 @@ const getEventIcon = (eventType) => {
                 ref={bottomScrollBarRef}
                 className="overflow-x-auto"
               >
-                <table className="min-w-[1400px] w-full">
+                <table className="min-w-[1450px] w-full">
                   <thead className="bg-gradient-to-r from-blue-800 via-purple-800 to-yellow-700 text-white sticky top-0 z-10">
                     <tr>
+                      <th className="px-4 py-3 text-left border-r border-blue-600">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          checked={filteredMembers.length > 0 && selectedMemberIds.length === filteredMembers.length}
+                          onChange={toggleAllSelection}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">#</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">First Name</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Last Name</th>
@@ -967,92 +1055,84 @@ const getEventIcon = (eventType) => {
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Address</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Occupation</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Foundation Class</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-r border-blue-600">Church Unit</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Church Unit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredMembers.map((member, index) => (
-                      <tr key={member._id} className="hover:bg-blue-50 transition-colors duration-200">
-                        <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                          {member.gender && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {member.gender}
-                            </span>
-                          )}
-                          {!member.gender && '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                          {member.phoneNumber && (
-                            <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                              <Phone className="w-3 h-3" /> {member.phoneNumber}
-                            </a>
-                          )}
-                          {!member.phoneNumber && '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                          {member.whatsappNumber && (
-                            <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800">
-                              {member.whatsappNumber}
-                            </a>
-                          )}
-                          {!member.whatsappNumber && '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                          {member.maritalStatus && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {member.maritalStatus}
-                            </span>
-                          )}
-                          {!member.maritalStatus && '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
-                          {member.residentialAddress || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
-                        <td className="px-4 py-3 text-sm border-r border-gray-200">
-                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                            {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
-                          {member.churchUnit && (
-                            <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                              {member.churchUnit}
-                            </span>
-                          )}
-                          {!member.churchUnit && '-'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            {(userRole === 'admin' || userRole === 'editor') && (
-                              <button
-                                onClick={() => handleEdit(member)}
-                                className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                                title="Edit Member"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
+                    {filteredMembers.map((member, index) => {
+                      const isSelected = selectedMemberIds.includes(member._id);
+                      return (
+                        <tr
+                          key={member._id}
+                          className={`${isSelected ? 'bg-blue-50' : 'hover:bg-blue-50'} transition-colors duration-200 cursor-pointer`}
+                          onClick={() => toggleSelection(member._id)}
+                        >
+                          <td className="px-4 py-3 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                              checked={isSelected}
+                              onChange={() => toggleSelection(member._id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 border-r border-gray-200">{index + 1}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">{member.firstName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{member.lastName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.email || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                            {member.gender && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === 'Male' ? 'bg-blue-100 text-blue-800' : member.gender === 'Female' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {member.gender}
+                              </span>
                             )}
-                            {userRole === 'admin' && (
-                              <button
-                                onClick={() => handleDelete(member._id)}
-                                className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
-                                title="Delete Member"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                            {!member.gender && '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                            {member.phoneNumber && (
+                              <a href={`tel:${member.phoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800" onClick={(e) => e.stopPropagation()}>
+                                <Phone className="w-3 h-3" /> {member.phoneNumber}
+                              </a>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                            {!member.phoneNumber && '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                            {member.whatsappNumber && (
+                              <a href={`https://wa.me/${member.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-green-600 hover:text-green-800" onClick={(e) => e.stopPropagation()}>
+                                {member.whatsappNumber}
+                              </a>
+                            )}
+                            {!member.whatsappNumber && '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.dateOfBirth || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">
+                            {member.maritalStatus && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.maritalStatus === 'Married' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {member.maritalStatus}
+                              </span>
+                            )}
+                            {!member.maritalStatus && '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.weddingAnniversary || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200 max-w-xs truncate" title={member.residentialAddress}>
+                            {member.residentialAddress || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-200">{member.occupation || '-'}</td>
+                          <td className="px-4 py-3 text-sm border-r border-gray-200">
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${member.completedFoundationClass === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {member.completedFoundationClass === 'Yes' ? '✓ Completed' : '⏳ Pending'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {member.churchUnit && (
+                              <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                                {member.churchUnit}
+                              </span>
+                            )}
+                            {!member.churchUnit && '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
