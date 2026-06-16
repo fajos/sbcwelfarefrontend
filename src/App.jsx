@@ -6,7 +6,6 @@ import AdminDashboard from './AdminDashboard';
 import ChurchCalendar from './components/ChurchCalendar';
 import AttendanceSessions from './components/AttendanceSessions';
 import AttendanceReports from './components/AttendanceReports';
-import NotificationsPanel from './components/NotificationsPanel';
 import MemberProfileModal from './components/MemberProfileModal';
 import BulkSMSPanel from './components/BulkSMSPanel';
 import {
@@ -46,7 +45,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', 'attendance', 'reports', 'notifications', 'bulksms'
+  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', 'attendance', 'reports', 'bulksms'
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -752,16 +751,6 @@ const getEventIcon = (eventType) => {
               >
                 <TrendingUp className="w-4 h-4 md:w-5 md:h-5" /> Reports
               </button>
-              <button
-                onClick={() => setActiveView('notifications')}
-                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
-                  activeView === 'notifications'
-                    ? 'bg-white text-blue-900'
-                    : 'bg-blue-700 text-white hover:bg-blue-800'
-                }`}
-              >
-                <Bell className="w-4 h-4 md:w-5 md:h-5" /> Notifications
-              </button>
 
               <button
                 onClick={() => setActiveView('bulksms')}
@@ -876,13 +865,6 @@ const getEventIcon = (eventType) => {
         {/* Reports View */}
         {activeView === 'reports' && (
           <AttendanceReports />
-        )}
-
-        {/* Notifications View */}
-        {activeView === 'notifications' && (
-          <div className="max-w-4xl mx-auto">
-            <NotificationsPanel />
-          </div>
         )}
 
         {/* Bulk SMS View */}
