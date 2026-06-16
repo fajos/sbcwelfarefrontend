@@ -4,12 +4,13 @@ import toast, { Toaster } from 'react-hot-toast';
 import Login from './Login';
 import AdminDashboard from './AdminDashboard';
 import ChurchCalendar from './components/ChurchCalendar';
-import { 
+import AttendanceSessions from './components/AttendanceSessions';
+import {
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays, CheckCircle
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -41,7 +42,8 @@ function App() {
   const [userRole, setUserRole] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [activeView, setActiveView] = useState('members'); // 'members' or 'calendar'
+  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', or 'attendance'
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -400,8 +402,8 @@ const getEventIcon = (eventType) => {
   };
 
   const handleBulkDelete = async () => {
-    if (userRole !== 'admin') {
-      toast.error('Only administrators can delete members');
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      toast.error('You do not have permission to delete members');
       return;
     }
 
@@ -427,8 +429,8 @@ const getEventIcon = (eventType) => {
   };
 
   const handleDelete = async (id) => {
-    if (userRole !== 'admin') {
-      toast.error('Only administrators can delete members');
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      toast.error('You do not have permission to delete members');
       return;
     }
     
@@ -631,6 +633,17 @@ const getEventIcon = (eventType) => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-yellow-50">
       <Toaster position="top-right" />
 
+      {/* Global Event Modal (for homepage/quick access) */}
+      {selectedEvent && activeView !== 'calendar' && (
+        <ChurchCalendar
+          userRole={userRole}
+          members={members}
+          initialEvent={selectedEvent}
+          onEventHandled={() => setSelectedEvent(null)}
+          showOnlyModal={true}
+        />
+      )}
+
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -687,6 +700,16 @@ const getEventIcon = (eventType) => {
                 }`}
               >
                 <CalendarDays className="w-4 h-4 md:w-5 md:h-5" /> Calendar
+              </button>
+              <button
+                onClick={() => setActiveView('attendance')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'attendance'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> Attendance
               </button>
               
               {/* Admin Panel Button */}
@@ -749,9 +772,43 @@ const getEventIcon = (eventType) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
         
+        {/* Global Event Modal Trigger (for when not in Calendar view) */}
+        {selectedEvent && activeView !== 'calendar' && (
+          <ChurchCalendar
+            userRole={userRole}
+            members={members}
+            initialEvent={selectedEvent}
+            showOnlyModal={true}
+            onEventHandled={() => setSelectedEvent(null)}
+          />
+        )}
+
         {/* Calendar View */}
         {activeView === 'calendar' && (
-          <ChurchCalendar userRole={userRole} />
+          <ChurchCalendar
+            userRole={userRole}
+            members={members}
+            initialEvent={selectedEvent}
+            onEventHandled={() => setSelectedEvent(null)}
+          />
+        )}
+
+        {/* Attendance History View */}
+        {activeView === 'attendance' && (
+          <AttendanceSessions
+            onSelectSession={(session) => {
+              setSelectedEvent({
+                id: session.eventId,
+                title: session.title,
+                start: new Date(session.eventDate),
+                end: new Date(session.eventDate),
+                type: session.eventType,
+                time: session.eventTime,
+                location: session.location,
+                isHistory: true
+              });
+            }}
+          />
         )}
 
         {/* Members View */}
@@ -789,7 +846,24 @@ const getEventIcon = (eventType) => {
             {upcomingEvents.map((event, idx) => {
               const daysUntil = getDaysUntilEvent(event.eventDate);
               return (
-                <div key={idx} className="p-4 hover:bg-blue-50 transition-colors">
+                <div
+                  key={idx}
+                  className="p-4 hover:bg-blue-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedEvent({
+                      id: event._id || event.id,
+                      title: event.title,
+                      start: new Date(event.eventDate),
+                      end: new Date(event.eventDate),
+                      desc: event.description,
+                      type: event.eventType,
+                      location: event.location,
+                      time: event.eventTime,
+                      isRecurring: event.isRecurring,
+                      recurrence: event.recurrence
+                    });
+                  }}
+                >
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -986,7 +1060,7 @@ const getEventIcon = (eventType) => {
                           <Edit2 className="w-4 h-4" />
                         </button>
                       )}
-                      {userRole === 'admin' && (
+                      {(userRole === 'admin' || userRole === 'editor') && (
                         <button
                           onClick={handleBulkDelete}
                           className="bg-red-600 text-white p-1.5 rounded hover:bg-red-700 transition"
