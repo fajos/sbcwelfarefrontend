@@ -5,12 +5,17 @@ import Login from './Login';
 import AdminDashboard from './AdminDashboard';
 import ChurchCalendar from './components/ChurchCalendar';
 import AttendanceSessions from './components/AttendanceSessions';
+import AttendanceReports from './components/AttendanceReports';
+import NotificationsPanel from './components/NotificationsPanel';
+import MemberProfileModal from './components/MemberProfileModal';
+import BulkSMSPanel from './components/BulkSMSPanel';
 import {
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
-  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays, CheckCircle
+  Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays, CheckCircle, Info,
+  TrendingUp, Bell, MessageSquare, Send
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -41,14 +46,14 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', or 'attendance'
+  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', 'attendance', 'reports', 'notifications', 'bulksms'
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [viewingMember, setViewingMember] = useState(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState('');
@@ -401,6 +406,32 @@ const getEventIcon = (eventType) => {
     }
   };
 
+  const handleBroadcastSMS = async () => {
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      toast.error('You do not have permission to send SMS');
+      return;
+    }
+
+    const message = prompt(`Enter message to send to ${selectedMemberIds.length} members:`);
+    if (!message) return;
+
+    try {
+      setIsLoading(true);
+      const response = await axios.post(`${API_URL}/notifications/broadcast-sms`, {
+        memberIds: selectedMemberIds,
+        message: message
+      }, getAuthHeaders());
+
+      toast.success(response.data.message);
+      setSelectedMemberIds([]);
+    } catch (error) {
+      console.error('Error sending broadcast SMS:', error);
+      toast.error(error.response?.data?.message || 'Failed to send broadcast SMS');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (userRole !== 'admin' && userRole !== 'editor') {
       toast.error('You do not have permission to delete members');
@@ -711,6 +742,37 @@ const getEventIcon = (eventType) => {
               >
                 <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> Attendance
               </button>
+              <button
+                onClick={() => setActiveView('reports')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'reports'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 md:w-5 md:h-5" /> Reports
+              </button>
+              <button
+                onClick={() => setActiveView('notifications')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'notifications'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <Bell className="w-4 h-4 md:w-5 md:h-5" /> Notifications
+              </button>
+
+              <button
+                onClick={() => setActiveView('bulksms')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'bulksms'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <Send className="w-4 h-4 md:w-5 md:h-5" /> Bulk SMS
+              </button>
               
               {/* Admin Panel Button */}
               {userRole === 'admin' && (
@@ -809,6 +871,23 @@ const getEventIcon = (eventType) => {
               });
             }}
           />
+        )}
+
+        {/* Reports View */}
+        {activeView === 'reports' && (
+          <AttendanceReports />
+        )}
+
+        {/* Notifications View */}
+        {activeView === 'notifications' && (
+          <div className="max-w-4xl mx-auto">
+            <NotificationsPanel />
+          </div>
+        )}
+
+        {/* Bulk SMS View */}
+        {activeView === 'bulksms' && (
+          <BulkSMSPanel members={members} />
         )}
 
         {/* Members View */}
@@ -1048,6 +1127,18 @@ const getEventIcon = (eventType) => {
                   <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
                     <span className="text-blue-800 font-bold">{selectedMemberIds.length} selected</span>
                     <div className="flex gap-2">
+                      {selectedMemberIds.length === 1 && (
+                        <button
+                          onClick={() => {
+                            const member = members.find(m => m._id === selectedMemberIds[0]);
+                            setViewingMember(member);
+                          }}
+                          className="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 transition"
+                          title="View Profile"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      )}
                       {selectedMemberIds.length === 1 && (userRole === 'admin' || userRole === 'editor') && (
                         <button
                           onClick={() => {
@@ -1058,6 +1149,15 @@ const getEventIcon = (eventType) => {
                           title="Edit Selected"
                         >
                           <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {(userRole === 'admin' || userRole === 'editor') && (
+                        <button
+                          onClick={handleBroadcastSMS}
+                          className="bg-green-600 text-white p-1.5 rounded hover:bg-green-700 transition"
+                          title="Send Broadcast SMS"
+                        >
+                          <MessageSquare className="w-4 h-4" />
                         </button>
                       )}
                       {(userRole === 'admin' || userRole === 'editor') && (
@@ -1222,6 +1322,15 @@ const getEventIcon = (eventType) => {
           </>
         )}
       </main>
+
+      {/* Member Profile Modal */}
+      {viewingMember && (
+        <MemberProfileModal
+          member={viewingMember}
+          onClose={() => setViewingMember(null)}
+          userRole={userRole}
+        />
+      )}
 
       {/* Add/Edit Member Modal */}
       {isFormOpen && (
