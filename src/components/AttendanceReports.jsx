@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { format } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
+  PieChart, Pie, Cell
 } from 'recharts';
 import {
   TrendingUp, Users, PieChart as PieChartIcon,
   Calendar, Download, RefreshCw, Filter, ChevronRight,
-  UserCheck, MapPin, Clock, Award
+  UserCheck, MapPin, Award, Search, ArrowLeft, FileText, CheckCircle, XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,15 +25,21 @@ const getAuthHeaders = () => {
   };
 };
 
-function AttendanceReports() {
+function AttendanceReports({ members = [] }) {
   const [loading, setLoading] = useState(true);
   const [trends, setTrends] = useState([]);
   const [demographics, setDemographics] = useState(null);
-  const [view, setView] = useState('trends'); // 'trends' or 'demographics'
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [sessionAttendance, setSessionAttendance] = useState({});
+  const [view, setView] = useState('trends'); // 'trends', 'demographics', or 'services'
   const [months, setMonths] = useState(6);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'present', 'absent'
 
   useEffect(() => {
     fetchData();
+    fetchSessions();
   }, [months]);
 
   const fetchData = async () => {
@@ -43,7 +50,6 @@ function AttendanceReports() {
         axios.get(`${API_URL}/reports/demographics`, getAuthHeaders())
       ]);
 
-      // Format months for the chart
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const formattedTrends = trendsRes.data.map(item => ({
         ...item,
@@ -61,7 +67,60 @@ function AttendanceReports() {
     }
   };
 
-  if (loading) {
+  const fetchSessions = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/attendance/sessions`, getAuthHeaders());
+      setSessions(response.data);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    }
+  };
+
+  const fetchSessionDetails = async (session) => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/attendance?eventId=${session.eventId}&eventDate=${session.eventDate}`,
+        getAuthHeaders()
+      );
+      const attendanceMap = {};
+      response.data.forEach(record => {
+        const memberId = record.member._id || record.member;
+        attendanceMap[memberId] = record.status;
+      });
+      setSessionAttendance(attendanceMap);
+      setSelectedSession(session);
+      setView('services');
+    } catch (error) {
+      console.error('Error fetching session details:', error);
+      toast.error('Failed to load service details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportServiceReport = () => {
+    if (!selectedSession) return;
+
+    const headers = ['First Name', 'Last Name', 'Church Unit', 'Status'];
+    const csvData = members.map(m => [
+      m.firstName,
+      m.lastName,
+      m.churchUnit || 'N/A',
+      sessionAttendance[m._id] === 'present' ? 'Present' : 'Absent'
+    ]);
+
+    const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Attendance_${selectedSession.title}_${new Date(selectedSession.eventDate).toLocaleDateString()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading && !selectedSession && view !== 'services') {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <RefreshCw className="w-10 h-10 text-blue-500 animate-spin mb-4" />
@@ -69,6 +128,14 @@ function AttendanceReports() {
       </div>
     );
   }
+
+  const filteredServiceMembers = members.filter(m => {
+    const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
+    const matchesSearch = fullName.includes(searchTerm.toLowerCase());
+    const status = sessionAttendance[m._id] === 'present' ? 'present' : 'absent';
+    const matchesStatus = statusFilter === 'all' || status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -82,27 +149,35 @@ function AttendanceReports() {
           <p className="text-gray-500">Analyze church growth and member participation</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border">
+        <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border overflow-x-auto">
           <button
-            onClick={() => setView('trends')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+            onClick={() => { setView('trends'); setSelectedSession(null); }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition whitespace-nowrap ${
               view === 'trends' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             Attendance Trends
           </button>
           <button
-            onClick={() => setView('demographics')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+            onClick={() => { setView('demographics'); setSelectedSession(null); }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition whitespace-nowrap ${
               view === 'demographics' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             Member Insights
           </button>
+          <button
+            onClick={() => setView('services')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition whitespace-nowrap ${
+              view === 'services' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Service Reports
+          </button>
         </div>
       </div>
 
-      {view === 'trends' ? (
+      {view === 'trends' && (
         <div className="space-y-6">
           {/* Trends Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -184,9 +259,10 @@ function AttendanceReports() {
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {view === 'demographics' && demographics && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Demographic Charts */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
               <Users className="w-5 h-5 text-blue-500" />
@@ -271,6 +347,145 @@ function AttendanceReports() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
+      )}
+
+      {view === 'services' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          {!selectedSession ? (
+            <div className="p-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-500" />
+                Select a Service for Detailed Report
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sessions.map((session, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => fetchSessionDetails(session)}
+                    className="p-4 border rounded-xl hover:bg-blue-50 cursor-pointer transition group"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full uppercase">
+                        {session.eventType}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 mb-1">{session.title}</h4>
+                    <p className="text-sm text-gray-500 mb-2">{format(new Date(session.eventDate), 'PPP')}</p>
+                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                      <Users className="w-3 h-3" />
+                      {session.presentCount} Present
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="p-6 border-b bg-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => { setSelectedSession(null); setSessionAttendance({}); }}
+                    className="p-2 hover:bg-white rounded-full transition shadow-sm border border-transparent hover:border-gray-200"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{selectedSession.title}</h3>
+                    <p className="text-sm text-gray-500">{format(new Date(selectedSession.eventDate), 'PPP')} • Detailed Report</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={exportServiceReport}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm text-sm font-bold"
+                  >
+                    <Download className="w-4 h-4" /> Export CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white border-b flex flex-wrap gap-4 items-center justify-between">
+                <div className="flex-1 min-w-[200px] relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search by name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${statusFilter === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    All ({members.length})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('present')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${statusFilter === 'present' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                  >
+                    Present ({Object.values(sessionAttendance).filter(v => v === 'present').length})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('absent')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${statusFilter === 'absent' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
+                  >
+                    Absent ({members.length - Object.values(sessionAttendance).filter(v => v === 'present').length})
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-left">
+                    <tr>
+                      <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Member Name</th>
+                      <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Church Unit</th>
+                      <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredServiceMembers.map(m => (
+                      <tr key={m._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-gray-900">{m.firstName} {m.lastName}</div>
+                          <div className="text-xs text-gray-500">{m.phoneNumber}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {m.churchUnit ? (
+                            <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-medium border border-indigo-100">
+                              {m.churchUnit}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {sessionAttendance[m._id] === 'present' ? (
+                            <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">
+                              <CheckCircle className="w-3.5 h-3.5" /> Present
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold">
+                              <XCircle className="w-3.5 h-3.5" /> Absent
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredServiceMembers.length === 0 && (
+                  <div className="py-20 text-center text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    <p>No members found matching your filters.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -864,7 +864,7 @@ const getEventIcon = (eventType) => {
 
         {/* Reports View */}
         {activeView === 'reports' && (
-          <AttendanceReports />
+          <AttendanceReports members={members} />
         )}
 
         {/* Bulk SMS View */}
