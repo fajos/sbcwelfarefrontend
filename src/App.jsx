@@ -68,6 +68,22 @@ function App() {
 
   const topScrollBarRef = useRef(null);
   const bottomScrollBarRef = useRef(null);
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  // Measure header height for sticky positioning
+  useEffect(() => {
+    if (!headerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setHeaderHeight(entry.contentRect.height + 32); // contentRect + padding
+      }
+    });
+
+    resizeObserver.observe(headerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [isAuthenticated]); // Re-run when auth changes as header content changes
 
 
 
@@ -176,13 +192,16 @@ const formatEventDate = (dateString) => {
 };
 
 const getDaysUntilEvent = (dateString) => {
+  if (!dateString) return null;
   const eventDate = new Date(dateString);
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  eventDate.setHours(0, 0, 0, 0);
-  
-  const diffTime = eventDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Compare dates using local time components to determine "today" relative to the user
+  const d1 = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+  const d2 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const diffTime = d1 - d2;
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
 };
 
@@ -230,12 +249,28 @@ const getEventIcon = (eventType) => {
             return { month, day };
           }
         } else if (pattern.regex.toString().includes('/')) {
-          const month = parseInt(match[1]) - 1;
-          const day = parseInt(match[2]);
+          const part1 = parseInt(match[1]);
+          const part2 = parseInt(match[2]);
+
+          let month, day;
+          // Determine if it's DD/MM or MM/DD based on values > 12
+          if (part1 > 12) {
+            day = part1;
+            month = part2 - 1;
+          } else if (part2 > 12) {
+            month = part1 - 1;
+            day = part2;
+          } else {
+            // Default to DD/MM as suggested by the placeholder "25/12"
+            day = part1;
+            month = part2 - 1;
+          }
+
           if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
             return { month, day };
           }
-        } else if (pattern.regex.toString().includes('st|nd|rd|th')) {
+        }
+ else if (pattern.regex.toString().includes('st|nd|rd|th')) {
           const day = parseInt(match[1]);
           const month = monthMap[match[2].toLowerCase()];
           if (month !== undefined && day >= 1 && day <= 31) {
@@ -285,7 +320,7 @@ const getEventIcon = (eventType) => {
         }
       }
       
-      if (member.maritalStatus === 'Married' && member.weddingAnniversary && member.weddingAnniversary !== '-') {
+      if (member.maritalStatus?.toLowerCase() === 'married' && member.weddingAnniversary && member.weddingAnniversary !== '-') {
         const anniversaryDate = extractMonthDay(member.weddingAnniversary);
         if (anniversaryDate) {
           const days = daysUntil(anniversaryDate.month, anniversaryDate.day);
@@ -675,7 +710,7 @@ const getEventIcon = (eventType) => {
       )}
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
+      <header ref={headerRef} className="bg-gradient-to-r from-blue-900 via-purple-800 to-yellow-700 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center space-x-3">
@@ -1091,8 +1126,11 @@ const getEventIcon = (eventType) => {
               </div>
             )}
 
-            {/* Search Bar */}
-            <div className="bg-white rounded-lg shadow-md mb-6 p-4">
+            {/* Search Bar & Action Bar (Sticky) */}
+            <div
+              className="bg-white rounded-lg shadow-xl mb-6 p-4 sticky z-40 border-2 border-blue-100 ring-4 ring-white ring-opacity-50"
+              style={{ top: `${headerHeight}px` }}
+            >
               <div className="flex gap-3 md:gap-4 flex-wrap items-center">
                 <div className="flex-1 min-w-[300px] relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
