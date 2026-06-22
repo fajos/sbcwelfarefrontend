@@ -34,12 +34,14 @@ const getAuthHeaders = () => {
   };
 };
 
-function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHandled, showOnlyModal = false }) {
+function ChurchCalendar({ userRoles = [], members = [], children = [], initialEvent = null, onEventHandled, showOnlyModal = false }) {
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [viewMode, setViewMode] = useState('details'); // 'details' or 'attendance'
   const [attendance, setAttendance] = useState({});
+  const [childAttendance, setChildAttendance] = useState({});
   const [attendanceSearch, setAttendanceSearch] = useState('');
+  const [attendanceTab, setAttendanceTab] = useState('members'); // 'members' or 'children'
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [formData, setFormData] = useState({
@@ -101,11 +103,18 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
       const dateISO = date.toISOString();
       const response = await axios.get(`${API_URL}/attendance?eventId=${eventId}&eventDate=${dateISO}`, getAuthHeaders());
       const attendanceMap = {};
+      const childAttendanceMap = {};
       response.data.forEach(record => {
-        const memberId = record.member._id || record.member;
-        attendanceMap[memberId] = record.status;
+        if (record.member) {
+          const memberId = record.member._id || record.member;
+          attendanceMap[memberId] = record.status;
+        } else if (record.child) {
+          const childId = record.child._id || record.child;
+          childAttendanceMap[childId] = record.status;
+        }
       });
       setAttendance(attendanceMap);
+      setChildAttendance(childAttendanceMap);
     } catch (error) {
       console.error('Error fetching attendance:', error);
     } finally {
@@ -131,12 +140,33 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
     });
   };
 
+  const toggleChildAttendance = (childId) => {
+    const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
+    if (editingEvent?.isHistory || isPast) return;
+
+    setChildAttendance(prev => {
+      if (prev[childId] === 'present') {
+        const newState = { ...prev };
+        delete newState[childId];
+        return newState;
+      } else {
+        return { ...prev, [childId]: 'present' };
+      }
+    });
+  };
+
   const handleSaveAttendance = async () => {
     try {
-      const records = Object.entries(attendance).map(([memberId, status]) => ({
-        memberId,
-        status
-      }));
+      const records = [
+        ...Object.entries(attendance).map(([memberId, status]) => ({
+          memberId,
+          status
+        })),
+        ...Object.entries(childAttendance).map(([childId, status]) => ({
+          childId,
+          status
+        }))
+      ];
 
       await axios.post(`${API_URL}/attendance/bulk`, {
         eventId: editingEvent.id,
@@ -210,11 +240,13 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
     setEditingEvent(null);
     setViewMode('details');
     setAttendance({});
+    setChildAttendance({});
     setAttendanceSearch('');
+    setAttendanceTab('members');
   };
 
   const handleSelectSlot = (slotInfo) => {
-    if (userRole === 'admin' || userRole === 'editor') {
+    if (userRoles.includes('admin') || userRoles.includes('editor')) {
       const date = new Date(slotInfo.start);
       setFormData({
         ...formData,
@@ -270,7 +302,7 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
               <CalendarIcon className="w-6 h-6 text-blue-600" />
               Church Calendar
             </h2>
-            {(userRole === 'admin' || userRole === 'editor') && (
+            {(userRoles.includes('admin') || userRoles.includes('editor')) && (
               <button
                 onClick={() => setShowModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
@@ -288,7 +320,7 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
             style={{ height: 600 }}
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
-            selectable={(userRole === 'admin' || userRole === 'editor')}
+            selectable={(userRoles.includes('admin') || userRoles.includes('editor'))}
             eventPropGetter={eventStyleGetter}
           />
         </div>
@@ -519,12 +551,27 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
               </form>
             ) : (
               <div className="flex flex-col h-[500px]">
-                <div className="p-4 border-b">
+                <div className="p-4 border-b bg-gray-50 space-y-3">
+                  <div className="flex bg-white rounded-lg p-1 border shadow-sm">
+                    <button
+                      onClick={() => setAttendanceTab('members')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all ${attendanceTab === 'members' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Members ({members.length})
+                    </button>
+                    <button
+                      onClick={() => setAttendanceTab('children')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all ${attendanceTab === 'children' ? 'bg-orange-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Children ({children.length})
+                    </button>
+                  </div>
+
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
-                      placeholder="Search members..."
+                      placeholder={`Search ${attendanceTab}...`}
                       value={attendanceSearch}
                       onChange={(e) => setAttendanceSearch(e.target.value)}
                       className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
@@ -542,70 +589,130 @@ function ChurchCalendar({ userRole, members = [], initialEvent = null, onEventHa
                     <div className="divide-y">
                       {(() => {
                         const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
-                        const displayMembers = members.filter(m => {
-                          const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
-                          const matchesSearch = fullName.includes(attendanceSearch.toLowerCase());
 
-                          if (editingEvent?.isHistory || isPast) {
-                            return matchesSearch && attendance[m._id] === 'present';
+                        if (attendanceTab === 'members') {
+                          const displayMembers = members.filter(m => {
+                            const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
+                            const matchesSearch = fullName.includes(attendanceSearch.toLowerCase());
+
+                            if (editingEvent?.isHistory || isPast) {
+                              return matchesSearch && attendance[m._id] === 'present';
+                            }
+                            return matchesSearch;
+                          });
+
+                          if (displayMembers.length === 0) {
+                            return (
+                              <div className="p-12 text-center text-gray-400">
+                                <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                                <p className="font-medium text-gray-500">
+                                  {editingEvent?.isHistory || isPast
+                                    ? (attendanceSearch ? 'No matching present members' : 'No members were marked present')
+                                    : (attendanceSearch ? 'No members found matching search' : 'No members in database')}
+                                </p>
+                              </div>
+                            );
                           }
-                          return matchesSearch;
-                        });
 
-                        if (displayMembers.length === 0) {
-                          return (
-                            <div className="p-12 text-center text-gray-400">
-                              <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                              <p className="font-medium text-gray-500">
-                                {editingEvent?.isHistory || isPast
-                                  ? (attendanceSearch ? 'No matching present members' : 'No members were marked present')
-                                  : (attendanceSearch ? 'No members found matching search' : 'No members in database')}
-                              </p>
-                              {!(editingEvent?.isHistory || isPast) && !attendanceSearch && members.length > 0 && (
-                                <p className="text-xs mt-1">Try searching or adding members to the database.</p>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return displayMembers.map(member => (
-                          <div
-                            key={member._id}
-                            onClick={() => toggleAttendance(member._id)}
-                            className={`flex items-center justify-between p-4 transition-colors ${
-                              editingEvent?.isHistory || isPast ? 'cursor-default' : 'hover:bg-blue-50 cursor-pointer'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${attendance[member._id] === 'present' ? 'bg-green-500 shadow-md' : 'bg-gray-300'}`}>
-                                {member.firstName?.[0] || ''}{member.lastName?.[0] || ''}
+                          return displayMembers.map(member => (
+                            <div
+                              key={member._id}
+                              onClick={() => toggleAttendance(member._id)}
+                              className={`flex items-center justify-between p-4 transition-colors ${
+                                editingEvent?.isHistory || isPast ? 'cursor-default' : 'hover:bg-blue-50 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${attendance[member._id] === 'present' ? 'bg-green-500 shadow-md' : 'bg-gray-300'}`}>
+                                  {member.firstName?.[0] || ''}{member.lastName?.[0] || ''}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-800 text-sm">{member.firstName} {member.lastName}</p>
+                                  <p className="text-xs text-gray-500">{member.churchUnit || 'No Unit Assigned'}</p>
+                                </div>
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-800 text-sm">{member.firstName} {member.lastName}</p>
-                                <p className="text-xs text-gray-500">{member.churchUnit || 'No Unit Assigned'}</p>
+                                {attendance[member._id] === 'present' ? (
+                                  <div className="bg-green-100 p-1 rounded-full">
+                                    <CheckCircle className="w-6 h-6 text-green-600" />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 border-2 border-gray-200 rounded-full" />
+                                )}
                               </div>
                             </div>
-                            <div>
-                              {attendance[member._id] === 'present' ? (
-                                <div className="bg-green-100 p-1 rounded-full">
-                                  <CheckCircle className="w-6 h-6 text-green-600" />
+                          ));
+                        } else {
+                          // Children Tab
+                          const displayChildren = children.filter(c => {
+                            const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                            const matchesSearch = fullName.includes(attendanceSearch.toLowerCase());
+
+                            if (editingEvent?.isHistory || isPast) {
+                              return matchesSearch && childAttendance[c._id] === 'present';
+                            }
+                            return matchesSearch;
+                          });
+
+                          if (displayChildren.length === 0) {
+                            return (
+                              <div className="p-12 text-center text-gray-400">
+                                <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                                <p className="font-medium text-gray-500">
+                                  {editingEvent?.isHistory || isPast
+                                    ? (attendanceSearch ? 'No matching present children' : 'No children were marked present')
+                                    : (attendanceSearch ? 'No children found matching search' : 'No children in database')}
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return displayChildren.map(child => (
+                            <div
+                              key={child._id}
+                              onClick={() => toggleChildAttendance(child._id)}
+                              className={`flex items-center justify-between p-4 transition-colors ${
+                                editingEvent?.isHistory || isPast ? 'cursor-default' : 'hover:bg-orange-50 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${childAttendance[child._id] === 'present' ? 'bg-orange-500 shadow-md' : 'bg-gray-300'}`}>
+                                  {child.firstName?.[0] || ''}{child.lastName?.[0] || ''}
                                 </div>
-                              ) : (
-                                <div className="w-6 h-6 border-2 border-gray-200 rounded-full" />
-                              )}
+                                <div>
+                                  <p className="font-semibold text-gray-800 text-sm">{child.firstName} {child.lastName}</p>
+                                  <p className="text-xs text-gray-500">{child.class || 'No Class Assigned'}</p>
+                                </div>
+                              </div>
+                              <div>
+                                {childAttendance[child._id] === 'present' ? (
+                                  <div className="bg-orange-100 p-1 rounded-full">
+                                    <CheckCircle className="w-6 h-6 text-orange-600" />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 border-2 border-gray-200 rounded-full" />
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ));
+                          ));
+                        }
                       })()}
                     </div>
                   )}
                 </div>
 
                 <div className="p-4 border-t bg-gray-50 flex items-center justify-between shrink-0">
-                  <div className="text-sm font-medium text-gray-600">
-                    <span className="text-green-600 font-bold">
-                      {Object.values(attendance).filter(v => v === 'present').length}
-                    </span> present
+                  <div className="flex flex-col text-xs font-medium text-gray-600">
+                    <div>
+                      Members: <span className="text-blue-600 font-bold">
+                        {Object.values(attendance).filter(v => v === 'present').length}
+                      </span> present
+                    </div>
+                    <div>
+                      Children: <span className="text-orange-600 font-bold">
+                        {Object.values(childAttendance).filter(v => v === 'present').length}
+                      </span> present
+                    </div>
                   </div>
                   {(() => {
                     const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);

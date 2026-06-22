@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
-  X, User, Phone, Mail, MapPin, Briefcase,
-  Calendar as CalendarIcon, Heart, GraduationCap,
-  CheckCircle, Clock, Award, Shield
+  X, User, Phone, Calendar as CalendarIcon,
+  CheckCircle, Clock, Award, Baby, Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -17,54 +16,50 @@ const getAuthHeaders = () => {
   };
 };
 
-function MemberProfileModal({ member, onClose, userRoles }) {
+function ChildProfileModal({ child, onClose, userRoles }) {
   const [attendance, setAttendance] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (member?._id) {
-      fetchMemberAttendance();
+    if (child?._id) {
+      fetchChildAttendance();
     }
-  }, [member]);
+  }, [child]);
 
-  const fetchMemberAttendance = async () => {
+  const fetchChildAttendance = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/attendance/member/${member._id}`, getAuthHeaders());
+      const response = await axios.get(`${API_URL}/attendance/child/${child._id}`, getAuthHeaders());
       setAttendance(response.data);
     } catch (error) {
-      console.error('Error fetching member attendance:', error);
+      console.error('Error fetching child attendance:', error);
       toast.error('Failed to load attendance history');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!member) return null;
+  if (!child) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-900 via-purple-800 to-indigo-900 text-white px-6 py-6 flex justify-between items-start">
+        <div className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white px-6 py-6 flex justify-between items-start">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-4xl border-2 border-white/30">
-              {member.gender === 'Female' ? '👩' : '👨'}
+              👶
             </div>
             <div>
-              <h2 className="text-3xl font-bold">{member.firstName} {member.lastName}</h2>
+              <h2 className="text-3xl font-bold">{child.firstName} {child.lastName}</h2>
               <div className="flex flex-wrap gap-2 mt-2">
-                {member.churchUnit && (
-                  <span className="bg-yellow-500/20 text-yellow-200 px-3 py-0.5 rounded-full text-sm font-medium border border-yellow-500/30">
-                    {member.churchUnit}
+                {child.class && (
+                  <span className="bg-white/20 text-white px-3 py-0.5 rounded-full text-sm font-medium border border-white/30">
+                    {child.class}
                   </span>
                 )}
-                <span className={`px-3 py-0.5 rounded-full text-sm font-medium border ${
-                  member.completedFoundationClass === 'Yes'
-                    ? 'bg-green-500/20 text-green-200 border-green-500/30'
-                    : 'bg-orange-500/20 text-orange-200 border-orange-500/30'
-                }`}>
-                  {member.completedFoundationClass === 'Yes' ? 'Foundation Graduate' : 'Foundation Pending'}
+                <span className="bg-yellow-400 text-yellow-900 px-3 py-0.5 rounded-full text-sm font-medium border border-yellow-500/30">
+                  Children Department
                 </span>
               </div>
             </div>
@@ -76,64 +71,56 @@ function MemberProfileModal({ member, onClose, userRoles }) {
 
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Contact & Personal Info */}
+            {/* Child Info & Parents */}
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" />
-                  Personal Information
+                  <Baby className="w-5 h-5 text-pink-600" />
+                  Child Information
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <CalendarIcon className="w-5 h-5 text-gray-400 mt-0.5" />
                     <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Email Address</p>
-                      <p className="text-gray-700 break-all">{member.email || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 uppercase font-bold">Date of Birth</p>
+                      <p className="text-gray-700">{child.dateOfBirth || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Award className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase font-bold">Class / Department</p>
+                      <p className="text-gray-700">{child.class || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="my-5 border-gray-100" />
+
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  Parent Information
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <User className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase font-bold">Parent/Guardian Name</p>
+                      <p className="text-gray-700 font-medium">{child.parentsName || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
                     <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Phone Number</p>
-                      <p className="text-gray-700">{member.phoneNumber || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <CalendarIcon className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Birthday</p>
-                      <p className="text-gray-700">{member.dateOfBirth || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Heart className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Marital Status</p>
-                      <p className="text-gray-700">{member.maritalStatus || 'N/A'}</p>
-                      {member.maritalStatus === 'Married' && member.weddingAnniversary && (
-                        <p className="text-xs text-purple-600 mt-1">Anniversary: {member.weddingAnniversary}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Residential Address</p>
-                      <p className="text-gray-700 text-sm">{member.residentialAddress || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Briefcase className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase font-bold">Occupation</p>
-                      <p className="text-gray-700">{member.occupation || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 uppercase font-bold">Parent Phone Number</p>
+                      <p className="text-gray-700 font-medium">{child.parentsPhoneNumber || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Stats Summary */}
-              <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-5 rounded-xl shadow-md text-white">
+              <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-5 rounded-xl shadow-md text-white">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   <Award className="w-5 h-5 text-yellow-300" />
                   Attendance Summary
@@ -141,13 +128,13 @@ function MemberProfileModal({ member, onClose, userRoles }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/10 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold">{attendance.length}</p>
-                    <p className="text-xs text-indigo-100 uppercase">Total Services</p>
+                    <p className="text-xs text-purple-100 uppercase">Total Services</p>
                   </div>
                   <div className="bg-white/10 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold">
                       {attendance.length > 0 ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) : 0}%
                     </p>
-                    <p className="text-xs text-indigo-100 uppercase">Consistency</p>
+                    <p className="text-xs text-purple-100 uppercase">Consistency</p>
                   </div>
                 </div>
               </div>
@@ -185,7 +172,7 @@ function MemberProfileModal({ member, onClose, userRoles }) {
                               <p className="font-semibold text-gray-800">{record.event?.title || 'Unknown Event'}</p>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-600">
-                              {format(new Date(record.eventDate), 'PPP')}
+                              {record.eventDate ? format(new Date(record.eventDate), 'PPP') : 'N/A'}
                             </td>
                             <td className="px-6 py-4">
                               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -206,7 +193,7 @@ function MemberProfileModal({ member, onClose, userRoles }) {
                   ) : (
                     <div className="p-12 text-center">
                       <CalendarIcon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                      <p className="text-gray-500">No attendance records found for this member.</p>
+                      <p className="text-gray-500">No attendance records found for this child.</p>
                     </div>
                   )}
                 </div>
@@ -229,4 +216,4 @@ function MemberProfileModal({ member, onClose, userRoles }) {
   );
 }
 
-export default MemberProfileModal;
+export default ChildProfileModal;

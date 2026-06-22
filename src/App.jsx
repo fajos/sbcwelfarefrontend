@@ -7,14 +7,16 @@ import ChurchCalendar from './components/ChurchCalendar';
 import AttendanceSessions from './components/AttendanceSessions';
 import AttendanceReports from './components/AttendanceReports';
 import MemberProfileModal from './components/MemberProfileModal';
+import ChildProfileModal from './components/ChildProfileModal';
 import BulkSMSPanel from './components/BulkSMSPanel';
+import MinutesOfMeeting from './components/MinutesOfMeeting';
 import {
   Users, Search, Plus, Edit2, Trash2, 
   RefreshCw, Download, Upload, Church, 
   Phone, Mail, Briefcase, Heart, 
   GraduationCap, ChevronLeft, ChevronRight,
   Cake, Gift, Calendar as CalendarIcon, LogOut, Shield, CalendarDays, CheckCircle, Info,
-  TrendingUp, Bell, MessageSquare, Send
+  TrendingUp, Bell, MessageSquare, Send, FileText
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -43,17 +45,21 @@ const CACHE_DURATION = 5 * 60 * 1000;
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
+  const [userRoles, setUserRoles] = useState([]);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', 'attendance', 'reports', 'bulksms'
+  const [activeView, setActiveView] = useState('members'); // 'members', 'calendar', 'attendance', 'reports', 'bulksms', 'children', 'minutes'
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [members, setMembers] = useState([]);
+  const [children, setChildren] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [editingChild, setEditingChild] = useState(null);
   const [viewingMember, setViewingMember] = useState(null);
+  const [viewingChild, setViewingChild] = useState(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [selectedChildIds, setSelectedChildIds] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState('');
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
@@ -64,6 +70,11 @@ function App() {
     phoneNumber: '', whatsappNumber: '', dateOfBirth: '',
     maritalStatus: '', weddingAnniversary: '', residentialAddress: '',
     occupation: '', completedFoundationClass: 'No', churchUnit: ''
+  });
+  const [childFormData, setChildFormData] = useState({
+    firstName: '', lastName: '', parentsName: '',
+    parentsPhoneNumber: '', dateOfBirth: '', class: '',
+    parentIds: []
   });
 
   const topScrollBarRef = useRef(null);
@@ -98,10 +109,18 @@ function App() {
           axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           const response = await axios.get(`${API_URL}/auth/verify`, getAuthHeaders());
           if (response.data.valid) {
-            const user = JSON.parse(storedUser);
+            const user = response.data.user; // Use fresh user data from server
             setIsAuthenticated(true);
             setCurrentUser(user);
-            setUserRole(user.role);
+            // Ensure roles is an array for multi-role support
+            const roles = Array.isArray(user.roles) ? user.roles : (user.roles ? [user.roles] : []);
+            setUserRoles(roles);
+            // Update localStorage with fresh data and token
+            localStorage.setItem('welfare_user', JSON.stringify(user));
+            if (response.data.token) {
+              localStorage.setItem('welfare_token', response.data.token);
+              axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            }
             await loadMembersData();
           } else {
             handleLogout();
@@ -119,28 +138,41 @@ function App() {
   const loadMembersData = async (forceRefresh = false) => {
     const now = Date.now();
     if (!forceRefresh && cachedMembers && (now - lastFetchTime) < CACHE_DURATION) {
-      setMembers(cachedMembers);
+      setMembers(cachedMembers.members);
+      setChildren(cachedMembers.children);
       return;
     }
     
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/members`, getAuthHeaders());
-      cachedMembers = response.data;
+      const [membersRes, childrenRes] = await Promise.all([
+        axios.get(`${API_URL}/members`, getAuthHeaders()),
+        axios.get(`${API_URL}/children`, getAuthHeaders())
+      ]);
+
+      const data = {
+        members: membersRes.data,
+        children: childrenRes.data
+      };
+
+      cachedMembers = data;
       lastFetchTime = now;
-      setMembers(response.data);
+      setMembers(data.members);
+      setChildren(data.children);
       setSelectedMemberIds([]);
-      if (response.data.length > 0) {
-        toast.success(`${response.data.length} members loaded`);
+      setSelectedChildIds([]);
+
+      if (data.members.length > 0 || data.children.length > 0) {
+        toast.success(`${data.members.length} members and ${data.children.length} children loaded`);
       }
-      return response.data;
+      return data;
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error('Error fetching data:', error);
       if (error.response?.status === 401) {
         handleLogout();
       }
-      toast.error('Error loading members');
-      return [];
+      toast.error('Error loading data');
+      return { members: [], children: [] };
     } finally {
       setIsLoading(false);
     }
@@ -149,7 +181,9 @@ function App() {
   const handleLogin = async (user) => {
     setIsAuthenticated(true);
     setCurrentUser(user);
-    setUserRole(user.role);
+    // Ensure roles is an array for multi-role support
+    const roles = Array.isArray(user.roles) ? user.roles : (user.roles ? [user.roles] : []);
+    setUserRoles(roles);
     await loadMembersData(true);
   };
 
@@ -159,7 +193,7 @@ function App() {
     delete axios.defaults.headers.common['Authorization'];
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setUserRole(null);
+    setUserRoles([]);
     setMembers([]);
     setShowAdminDashboard(false);
     setShowCalendar(false);
@@ -403,7 +437,7 @@ const getEventIcon = (eventType) => {
   };
 
   const handleEdit = (member) => {
-    if (userRole !== 'admin' && userRole !== 'editor') {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
       toast.error('You do not have permission to edit members');
       return;
     }
@@ -441,7 +475,7 @@ const getEventIcon = (eventType) => {
   };
 
   const handleBroadcastSMS = async () => {
-    if (userRole !== 'admin' && userRole !== 'editor') {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
       toast.error('You do not have permission to send SMS');
       return;
     }
@@ -467,7 +501,7 @@ const getEventIcon = (eventType) => {
   };
 
   const handleBulkDelete = async () => {
-    if (userRole !== 'admin' && userRole !== 'editor') {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
       toast.error('You do not have permission to delete members');
       return;
     }
@@ -494,7 +528,7 @@ const getEventIcon = (eventType) => {
   };
 
   const handleDelete = async (id) => {
-    if (userRole !== 'admin' && userRole !== 'editor') {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
       toast.error('You do not have permission to delete members');
       return;
     }
@@ -526,8 +560,108 @@ const getEventIcon = (eventType) => {
     setEditingMember(null);
   };
 
+  const handleChildSubmit = async (e) => {
+    e.preventDefault();
+    if (!childFormData.firstName || !childFormData.lastName) {
+      toast.error('First Name and Last Name are required');
+      return;
+    }
+
+    try {
+      if (editingChild) {
+        await axios.put(`${API_URL}/children/${editingChild._id}`, childFormData, getAuthHeaders());
+        toast.success('Child updated successfully');
+      } else {
+        await axios.post(`${API_URL}/children`, childFormData, getAuthHeaders());
+        toast.success('Child added successfully');
+      }
+      cachedMembers = null;
+      await loadMembersData(true);
+      resetChildForm();
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Error saving child:', error);
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to add/edit children');
+      } else if (error.response?.status === 401) {
+        handleLogout();
+      } else {
+        toast.error('Error saving child');
+      }
+    }
+  };
+
+  const handleChildEdit = (child) => {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
+      toast.error('You do not have permission to edit children');
+      return;
+    }
+    setEditingChild(child);
+    setChildFormData({
+      firstName: child.firstName || '',
+      lastName: child.lastName || '',
+      parentsName: child.parentsName || '',
+      parentsPhoneNumber: child.parentsPhoneNumber || '',
+      dateOfBirth: child.dateOfBirth || '',
+      class: child.class || '',
+      parentIds: child.parentIds?.map(p => typeof p === 'object' ? p._id : p) || []
+    });
+    setIsFormOpen(true);
+  };
+
+  const toggleChildSelection = (id) => {
+    setSelectedChildIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllChildSelection = () => {
+    if (selectedChildIds.length === filteredChildren.length && filteredChildren.length > 0) {
+      setSelectedChildIds([]);
+    } else {
+      setSelectedChildIds(filteredChildren.map(c => c._id));
+    }
+  };
+
+  const handleBulkChildDelete = async () => {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
+      toast.error('You do not have permission to delete children');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${selectedChildIds.length} children? This action cannot be undone.`)) {
+      try {
+        setIsLoading(true);
+        const headers = getAuthHeaders();
+        await Promise.all(selectedChildIds.map(id =>
+          axios.delete(`${API_URL}/children/${id}`, headers)
+        ));
+        toast.success(`${selectedChildIds.length} children deleted successfully`);
+        setSelectedChildIds([]);
+        cachedMembers = null;
+        await loadMembersData(true);
+      } catch (error) {
+        console.error('Error deleting children:', error);
+        toast.error('Error deleting some children');
+        await loadMembersData(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const resetChildForm = () => {
+    setChildFormData({
+      firstName: '', lastName: '', parentsName: '',
+      parentsPhoneNumber: '', dateOfBirth: '', class: '',
+      parentIds: []
+    });
+    setEditingChild(null);
+    setEditingMember(null); // Ensure we're not editing a member
+  };
+
   const resetDatabase = async () => {
-    if (userRole !== 'admin') {
+    if (!userRoles.includes('admin')) {
       toast.error('Only administrators can reset the database');
       return;
     }
@@ -550,7 +684,7 @@ const getEventIcon = (eventType) => {
   };
 
   const handleBulkImport = () => {
-    if (userRole !== 'admin' && userRole !== 'editor') {
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) {
       toast.error('You do not have permission to import members');
       return;
     }
@@ -621,6 +755,31 @@ const getEventIcon = (eventType) => {
     reader.readAsText(file);
   };
 
+  const exportChildrenToCSV = () => {
+    const headers = [
+      'First Name', 'Last Name', 'Parent\'s Name', 'Parent\'s Phone Number', 'Date of Birth', 'Class'
+    ];
+
+    const csvData = children.map(c => [
+      c.firstName || '',
+      c.lastName || '',
+      c.parentsName || '',
+      c.parentsPhoneNumber || '',
+      c.dateOfBirth || '',
+      c.class || ''
+    ]);
+
+    const csvContent = [headers, ...csvData].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `church_children_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Export successful!');
+  };
+
   const exportToCSV = () => {
     const headers = [
       'First Name', 'Last Name', 'Email', 'Gender', 'Phone Number', 
@@ -677,6 +836,18 @@ const getEventIcon = (eventType) => {
     );
   });
 
+  const filteredChildren = children.filter(child => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      child.firstName?.toLowerCase().includes(term) ||
+      child.lastName?.toLowerCase().includes(term) ||
+      child.parentsName?.toLowerCase().includes(term) ||
+      child.parentsPhoneNumber?.includes(term) ||
+      child.class?.toLowerCase().includes(term)
+    );
+  });
+
   const getEventColor = (days) => {
     if (days <= 7) return 'bg-red-100 text-red-800 border-red-200';
     if (days <= 14) return 'bg-orange-100 text-orange-800 border-orange-200';
@@ -701,8 +872,9 @@ const getEventIcon = (eventType) => {
       {/* Global Event Modal (for homepage/quick access) */}
       {selectedEvent && activeView !== 'calendar' && (
         <ChurchCalendar
-          userRole={userRole}
+          userRoles={userRoles}
           members={members}
+          children={children}
           initialEvent={selectedEvent}
           onEventHandled={() => setSelectedEvent(null)}
           showOnlyModal={true}
@@ -735,11 +907,14 @@ const getEventIcon = (eventType) => {
                   <p className="text-yellow-200 text-sm md:text-base">
                     Welfare Management System
                   </p>
-                  {userRole === 'admin' && (
+                  {userRoles.includes('admin') && (
                     <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Admin</span>
                   )}
-                  {userRole === 'editor' && (
+                  {userRoles.includes('editor') && (
                     <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">Editor</span>
+                  )}
+                  {userRoles.includes('Executives') && (
+                    <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">Executive</span>
                   )}
                 </div>
               </div>
@@ -755,6 +930,16 @@ const getEventIcon = (eventType) => {
                 }`}
               >
                 <Users className="w-4 h-4 md:w-5 md:h-5" /> Members
+              </button>
+              <button
+                onClick={() => setActiveView('children')}
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                  activeView === 'children'
+                    ? 'bg-white text-blue-900'
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
+              >
+                <Users className="w-4 h-4 md:w-5 md:h-5" /> Children
               </button>
               <button
                 onClick={() => setActiveView('calendar')}
@@ -776,30 +961,47 @@ const getEventIcon = (eventType) => {
               >
                 <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> Attendance
               </button>
-              <button
-                onClick={() => setActiveView('reports')}
-                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
-                  activeView === 'reports'
-                    ? 'bg-white text-blue-900'
-                    : 'bg-blue-700 text-white hover:bg-blue-800'
-                }`}
-              >
-                <TrendingUp className="w-4 h-4 md:w-5 md:h-5" /> Reports
-              </button>
+              {(userRoles.includes('admin') || userRoles.includes('Executives')) && (
+                <button
+                  onClick={() => setActiveView('reports')}
+                  className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                    activeView === 'reports'
+                      ? 'bg-white text-blue-900'
+                      : 'bg-blue-700 text-white hover:bg-blue-800'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5" /> Reports
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveView('bulksms')}
-                className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
-                  activeView === 'bulksms'
-                    ? 'bg-white text-blue-900'
-                    : 'bg-blue-700 text-white hover:bg-blue-800'
-                }`}
-              >
-                <Send className="w-4 h-4 md:w-5 md:h-5" /> Bulk SMS
-              </button>
-              
+              {(userRoles.includes('admin') || userRoles.includes('editor')) && (
+                <button
+                  onClick={() => setActiveView('bulksms')}
+                  className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                    activeView === 'bulksms'
+                      ? 'bg-white text-blue-900'
+                      : 'bg-blue-700 text-white hover:bg-blue-800'
+                  }`}
+                >
+                  <Send className="w-4 h-4 md:w-5 md:h-5" /> Bulk SMS
+                </button>
+              )}
+
+              {(userRoles.includes('admin') || userRoles.includes('Executives')) && (
+                <button
+                  onClick={() => setActiveView('minutes')}
+                  className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition shadow-md text-sm md:text-base ${
+                    activeView === 'minutes'
+                      ? 'bg-white text-blue-900'
+                      : 'bg-blue-700 text-white hover:bg-blue-800'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 md:w-5 md:h-5" /> Minutes
+                </button>
+              )}
+
               {/* Admin Panel Button */}
-              {userRole === 'admin' && (
+              {userRoles.includes('admin') && (
                 <button
                   onClick={() => setShowAdminDashboard(true)}
                   className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
@@ -811,7 +1013,7 @@ const getEventIcon = (eventType) => {
               {/* Member Management Buttons (only show when members view is active) */}
               {activeView === 'members' && (
                 <>
-                  {(userRole === 'admin' || userRole === 'editor') && (
+                  {(userRoles.includes('admin') || userRoles.includes('editor')) && (
                     <button
                       onClick={() => { setIsImportOpen(true); resetForm(); }}
                       className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition shadow-md text-sm md:text-base"
@@ -825,7 +1027,7 @@ const getEventIcon = (eventType) => {
                   >
                     <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
                   </button>
-                  {(userRole === 'admin' || userRole === 'editor') && (
+                  {(userRoles.includes('admin') || userRoles.includes('editor')) && (
                     <button
                       onClick={() => { setIsFormOpen(true); resetForm(); }}
                       className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
@@ -833,12 +1035,32 @@ const getEventIcon = (eventType) => {
                       <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Member
                     </button>
                   )}
-                  {userRole === 'admin' && (
+                  {userRoles.includes('admin') && (
                     <button
                       onClick={resetDatabase}
                       className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-red-700 hover:to-red-800 transition shadow-md text-sm md:text-base"
                     >
                       <Trash2 className="w-4 h-4 md:w-5 md:h-5" /> Reset DB
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Children Management Buttons */}
+              {activeView === 'children' && (
+                <>
+                  <button
+                    onClick={exportChildrenToCSV}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition shadow-md text-sm md:text-base"
+                  >
+                    <Download className="w-4 h-4 md:w-5 md:h-5" /> Export CSV
+                  </button>
+                  {(userRoles.includes('admin') || userRoles.includes('editor')) && (
+                    <button
+                      onClick={() => { setIsFormOpen(true); resetChildForm(); }}
+                      className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-blue-900 px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-yellow-600 hover:to-yellow-700 transition shadow-md text-sm md:text-base"
+                    >
+                      <Plus className="w-4 h-4 md:w-5 md:h-5" /> Add Child
                     </button>
                   )}
                 </>
@@ -858,22 +1080,14 @@ const getEventIcon = (eventType) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
         
-        {/* Global Event Modal Trigger (for when not in Calendar view) */}
-        {selectedEvent && activeView !== 'calendar' && (
-          <ChurchCalendar
-            userRole={userRole}
-            members={members}
-            initialEvent={selectedEvent}
-            showOnlyModal={true}
-            onEventHandled={() => setSelectedEvent(null)}
-          />
-        )}
+
 
         {/* Calendar View */}
         {activeView === 'calendar' && (
           <ChurchCalendar
-            userRole={userRole}
+            userRoles={userRoles}
             members={members}
+            children={children}
             initialEvent={selectedEvent}
             onEventHandled={() => setSelectedEvent(null)}
           />
@@ -893,18 +1107,201 @@ const getEventIcon = (eventType) => {
                 location: session.location,
                 isHistory: true
               });
+              // Ensure we are in a state that will show the modal
+              // The Global Event Modal at the top of main will handle this
             }}
           />
         )}
 
         {/* Reports View */}
         {activeView === 'reports' && (
-          <AttendanceReports members={members} />
+          <AttendanceReports members={members} children={children} />
         )}
 
         {/* Bulk SMS View */}
         {activeView === 'bulksms' && (
           <BulkSMSPanel members={members} />
+        )}
+
+        {/* Minutes of Meeting View */}
+        {activeView === 'minutes' && (userRoles.includes('admin') || userRoles.includes('Executives')) && (
+          <MinutesOfMeeting userRoles={userRoles} members={members} />
+        )}
+
+        {/* Children View */}
+        {activeView === 'children' && (
+          <>
+            {/* Welcome Banner */}
+            <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg p-4 mb-6">
+              <p className="text-gray-700">
+                Children's Department Management.
+                <span className="ml-2 text-gray-500">({children.length} children loaded)</span>
+              </p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow-md p-3 md:p-4 hover:shadow-lg transition border-l-4 border-orange-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-xs md:text-sm">Total Children</p>
+                    <p className="text-2xl md:text-3xl font-bold text-orange-800">{children.length}</p>
+                  </div>
+                  <Users className="w-8 h-8 md:w-10 md:h-10 text-orange-600 opacity-75" />
+                </div>
+              </div>
+            </div>
+
+            {/* Search Bar & Action Bar (Sticky) */}
+            <div
+              className="bg-white rounded-lg shadow-xl mb-6 p-4 sticky z-40 border-2 border-orange-100 ring-4 ring-white ring-opacity-50"
+              style={{ top: `${headerHeight}px` }}
+            >
+              <div className="flex gap-3 md:gap-4 flex-wrap items-center">
+                <div className="flex-1 min-w-[300px] relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, parent's name, or class..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 md:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base"
+                  />
+                </div>
+
+                {selectedChildIds.length > 0 && (
+                  <div className="flex items-center gap-3 bg-orange-50 px-4 py-2 rounded-lg border border-orange-200">
+                    <span className="text-orange-800 font-bold">{selectedChildIds.length} selected</span>
+                    <div className="flex gap-2">
+                      {selectedChildIds.length === 1 && (
+                        <button
+                          onClick={() => {
+                            const child = children.find(c => c._id === selectedChildIds[0]);
+                            setViewingChild(child);
+                          }}
+                          className="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 transition"
+                          title="View Profile"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      )}
+                      {selectedChildIds.length === 1 && (userRoles.includes('admin') || userRoles.includes('editor')) && (
+                        <button
+                          onClick={() => {
+                            const child = children.find(c => c._id === selectedChildIds[0]);
+                            handleChildEdit(child);
+                          }}
+                          className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 transition"
+                          title="Edit Selected"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {(userRoles.includes('admin') || userRoles.includes('editor')) && (
+                        <button
+                          onClick={handleBulkChildDelete}
+                          className="bg-red-600 text-white p-1.5 rounded hover:bg-red-700 transition"
+                          title="Delete Selected"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSelectedChildIds([])}
+                        className="text-gray-500 hover:text-gray-700 p-1.5"
+                        title="Clear Selection"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => loadMembersData(true)}
+                  className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 hover:from-orange-700 hover:to-orange-800 transition text-sm md:text-base"
+                >
+                  <RefreshCw className="w-4 h-4 md:w-5 md:h-5" /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Children Table */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-orange-800 to-yellow-700 text-white sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer"
+                          checked={filteredChildren.length > 0 && selectedChildIds.length === filteredChildren.length}
+                          onChange={toggleAllChildSelection}
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">First Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Last Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Parent's Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Parent's Phone</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date of Birth</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Class</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredChildren.map((child, index) => {
+                      const isSelected = selectedChildIds.includes(child._id);
+                      return (
+                        <tr
+                          key={child._id}
+                          className={`${isSelected ? 'bg-orange-50' : 'hover:bg-orange-50'} transition-colors duration-200 cursor-pointer`}
+                          onClick={() => toggleChildSelection(child._id)}
+                        >
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer"
+                              checked={isSelected}
+                              onChange={() => toggleChildSelection(child._id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{child.firstName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{child.lastName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{child.parentsName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {child.parentsPhoneNumber && (
+                              <a href={`tel:${child.parentsPhoneNumber}`} className="flex items-center gap-1 text-green-600 hover:text-green-800" onClick={(e) => e.stopPropagation()}>
+                                <Phone className="w-3 h-3" /> {child.parentsPhoneNumber}
+                              </a>
+                            )}
+                            {!child.parentsPhoneNumber && '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{child.dateOfBirth || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {child.class && (
+                              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                                {child.class}
+                              </span>
+                            )}
+                            {!child.class && '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {filteredChildren.length === 0 && !isLoading && (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-16 h-16 mx-auto text-gray-300 mb-3" />
+                  <p className="text-lg font-medium">No children found</p>
+                  <p className="text-sm">Click "Add Child" to get started.</p>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Members View */}
@@ -914,7 +1311,7 @@ const getEventIcon = (eventType) => {
             <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6">
               <p className="text-gray-700">
                 Welcome, <span className="font-semibold">{currentUser?.username}</span>! 
-                You are logged in as <span className="font-semibold text-purple-600">{userRole}</span>.
+                You are logged in as <span className="font-semibold text-purple-600">{userRoles.join(', ')}</span>.
                 {members.length > 0 && <span className="ml-2 text-gray-500">({members.length} members loaded)</span>}
               </p>
             </div>
@@ -1159,7 +1556,7 @@ const getEventIcon = (eventType) => {
                           <Info className="w-4 h-4" />
                         </button>
                       )}
-                      {selectedMemberIds.length === 1 && (userRole === 'admin' || userRole === 'editor') && (
+                      {selectedMemberIds.length === 1 && (userRoles.includes('admin') || userRoles.includes('editor')) && (
                         <button
                           onClick={() => {
                             const member = members.find(m => m._id === selectedMemberIds[0]);
@@ -1171,7 +1568,7 @@ const getEventIcon = (eventType) => {
                           <Edit2 className="w-4 h-4" />
                         </button>
                       )}
-                      {(userRole === 'admin' || userRole === 'editor') && (
+                      {(userRoles.includes('admin') || userRoles.includes('editor')) && (
                         <button
                           onClick={handleBroadcastSMS}
                           className="bg-green-600 text-white p-1.5 rounded hover:bg-green-700 transition"
@@ -1180,7 +1577,7 @@ const getEventIcon = (eventType) => {
                           <MessageSquare className="w-4 h-4" />
                         </button>
                       )}
-                      {(userRole === 'admin' || userRole === 'editor') && (
+                      {(userRoles.includes('admin') || userRoles.includes('editor')) && (
                         <button
                           onClick={handleBulkDelete}
                           className="bg-red-600 text-white p-1.5 rounded hover:bg-red-700 transition"
@@ -1348,83 +1745,168 @@ const getEventIcon = (eventType) => {
         <MemberProfileModal
           member={viewingMember}
           onClose={() => setViewingMember(null)}
-          userRole={userRole}
+          userRoles={userRoles}
         />
       )}
 
-      {/* Add/Edit Member Modal */}
+      {/* Child Profile Modal */}
+      {viewingChild && (
+        <ChildProfileModal
+          child={viewingChild}
+          onClose={() => setViewingChild(null)}
+          userRoles={userRoles}
+        />
+      )}
+
+      {/* Add/Edit Member or Child Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-blue-800 to-purple-800 text-white px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold">
-                {editingMember ? '✏️ Edit Member' : '➕ Add New Member'}
+                {activeView === 'children'
+                  ? (editingChild ? '✏️ Edit Child' : '➕ Add New Child')
+                  : (editingMember ? '✏️ Edit Member' : '➕ Add New Member')}
               </h2>
-              <button onClick={() => { setIsFormOpen(false); resetForm(); }} className="text-white hover:text-yellow-200 text-3xl">×</button>
+              <button onClick={() => { setIsFormOpen(false); activeView === 'children' ? resetChildForm() : resetForm(); }} className="text-white hover:text-yellow-200 text-3xl">×</button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
-                  <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+
+            {activeView === 'children' ? (
+              <form onSubmit={handleChildSubmit} className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
+                    <input type="text" value={childFormData.firstName} onChange={e => setChildFormData({...childFormData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
+                    <input type="text" value={childFormData.lastName} onChange={e => setChildFormData({...childFormData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" required />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Select Parent(s) from Members</label>
+                    <div className="border border-gray-300 rounded-lg p-2 max-h-40 overflow-y-auto bg-gray-50">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {members.sort((a, b) => a.firstName.localeCompare(b.firstName)).map(member => (
+                          <label key={member._id} className="flex items-center gap-2 p-1 hover:bg-white rounded cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={childFormData.parentIds.includes(member._id)}
+                              onChange={(e) => {
+                                let newParentIds = [...childFormData.parentIds];
+                                if (e.target.checked) {
+                                  newParentIds.push(member._id);
+                                } else {
+                                  newParentIds = newParentIds.filter(id => id !== member._id);
+                                }
+
+                                // Auto-populate names and phone numbers
+                                const selectedParents = members.filter(m => newParentIds.includes(m._id));
+                                const combinedNames = selectedParents.map(p => `${p.firstName} ${p.lastName}`).join(' & ');
+                                const combinedPhones = selectedParents.map(p => p.phoneNumber).filter(ph => ph && ph !== '-').join(', ');
+
+                                setChildFormData({
+                                  ...childFormData,
+                                  parentIds: newParentIds,
+                                  parentsName: combinedNames || childFormData.parentsName,
+                                  parentsPhoneNumber: combinedPhones || childFormData.parentsPhoneNumber
+                                });
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 truncate">{member.firstName} {member.lastName}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 italic">Optional: Selecting parents will auto-fill the fields below. You can still edit them manually.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Parent's Name(s)</label>
+                    <input type="text" value={childFormData.parentsName} onChange={e => setChildFormData({...childFormData, parentsName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" placeholder="e.g. John & Jane Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Parent's Phone Number(s)</label>
+                    <input type="text" value={childFormData.parentsPhoneNumber} onChange={e => setChildFormData({...childFormData, parentsPhoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" placeholder="e.g. 08012345678, 07087654321" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
+                    <input type="text" value={childFormData.dateOfBirth} onChange={e => setChildFormData({...childFormData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" placeholder="e.g., December 25" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Class</label>
+                    <input type="text" value={childFormData.class} onChange={e => setChildFormData({...childFormData, class: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" placeholder="e.g., Sunday School 1" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
-                  <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                <div className="flex gap-3 mt-6">
+                  <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition shadow-md">{editingChild ? 'Update Child' : 'Save Child'}</button>
+                  <button type="button" onClick={() => { setIsFormOpen(false); resetChildForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Email</label>
-                  <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">First Name *</label>
+                    <input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Last Name *</label>
+                    <input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Email</label>
+                    <input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Gender</label>
+                    <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Phone Number</label>
+                    <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">WhatsApp Number</label>
+                    <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
+                    <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Marital Status</label>
+                    <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Wedding Anniversary</label>
+                    <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Residential Address</label>
+                    <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Occupation</label>
+                    <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Completed Foundation Class?</label>
+                    <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1 text-blue-800">Church Unit</label>
+                    <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Gender</label>
-                  <input type="text" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Male/Female/Other" />
+                <div className="flex gap-3 mt-6">
+                  <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition shadow-md">{editingMember ? 'Update Member' : 'Save Member'}</button>
+                  <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Phone Number</label>
-                  <input type="text" value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">WhatsApp Number</label>
-                  <input type="text" value={formData.whatsappNumber} onChange={e => setFormData({...formData, whatsappNumber: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Date of Birth</label>
-                  <input type="text" value={formData.dateOfBirth} onChange={e => setFormData({...formData, dateOfBirth: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., December 25 or 25/12" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Marital Status</label>
-                  <input type="text" value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Single/Married/Divorced/Widowed" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Wedding Anniversary</label>
-                  <input type="text" value={formData.weddingAnniversary} onChange={e => setFormData({...formData, weddingAnniversary: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., June 1 or 01/06" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Residential Address</label>
-                  <input type="text" value={formData.residentialAddress} onChange={e => setFormData({...formData, residentialAddress: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Occupation</label>
-                  <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Completed Foundation Class?</label>
-                  <select value={formData.completedFoundationClass} onChange={e => setFormData({...formData, completedFoundationClass: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1 text-blue-800">Church Unit</label>
-                  <input type="text" placeholder="e.g., Choir, Ushering, Welfare" value={formData.churchUnit} onChange={e => setFormData({...formData, churchUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition shadow-md">{editingMember ? 'Update Member' : 'Save Member'}</button>
-                <button type="button" onClick={() => { setIsFormOpen(false); resetForm(); }} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 transition">Cancel</button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}

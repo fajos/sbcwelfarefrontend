@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   Users, Shield, UserPlus, Edit2, Trash2, 
-  Key, RefreshCw, X, Check, Crown, Eye, EyeOff
+  Key, RefreshCw, X, Check, Crown, Eye, EyeOff, Briefcase
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -17,6 +17,13 @@ const getAuthHeaders = () => {
   };
 };
 
+const AVAILABLE_ROLES = [
+  { id: 'admin', name: 'Admin', icon: <Crown className="w-4 h-4" />, color: 'bg-red-100 text-red-800' },
+  { id: 'editor', name: 'Editor', icon: <Edit2 className="w-4 h-4" />, color: 'bg-green-100 text-green-800' },
+  { id: 'viewer', name: 'Viewer', icon: <Eye className="w-4 h-4" />, color: 'bg-gray-100 text-gray-800' },
+  { id: 'Executives', name: 'Executives', icon: <Briefcase className="w-4 h-4" />, color: 'bg-purple-100 text-purple-800' }
+];
+
 function AdminDashboard({ onBack }) {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +33,7 @@ function AdminDashboard({ onBack }) {
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
-    role: 'viewer'
+    roles: ['viewer']
   });
   const [resetPassword, setResetPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +50,8 @@ function AdminDashboard({ onBack }) {
       toast.success(`${response.data.length} users loaded`);
     } catch (error) {
       console.error('Error fetching users:', error);
-      toast.error('Error loading users');
+      const errorMsg = error.response?.data?.message || error.message;
+      toast.error(`Error loading users: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +72,7 @@ function AdminDashboard({ onBack }) {
       await axios.post(`${API_URL}/admin/users`, newUser, getAuthHeaders());
       toast.success(`User "${newUser.username}" created successfully`);
       setShowCreateModal(false);
-      setNewUser({ username: '', password: '', role: 'viewer' });
+      setNewUser({ username: '', password: '', roles: ['viewer'] });
       fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
@@ -72,14 +80,29 @@ function AdminDashboard({ onBack }) {
     }
   };
 
-  const handleUpdateRole = async (userId, newRole) => {
+  const handleToggleRole = async (user, roleId) => {
+    if (user.username === 'admin' && roleId === 'admin') return;
+
+    let newRoles;
+    const currentRoles = user.roles || [];
+    if (currentRoles.includes(roleId)) {
+      newRoles = currentRoles.filter(r => r !== roleId);
+    } else {
+      newRoles = [...currentRoles, roleId];
+    }
+
+    if (newRoles.length === 0) {
+      toast.error('User must have at least one role');
+      return;
+    }
+
     try {
-      await axios.put(`${API_URL}/admin/users/${userId}`, { role: newRole }, getAuthHeaders());
-      toast.success('User role updated successfully');
+      await axios.put(`${API_URL}/admin/users/${user._id}`, { roles: newRoles }, getAuthHeaders());
+      toast.success('User roles updated successfully');
       fetchUsers();
     } catch (error) {
-      console.error('Error updating role:', error);
-      toast.error(error.response?.data?.message || 'Error updating role');
+      console.error('Error updating roles:', error);
+      toast.error(error.response?.data?.message || 'Error updating roles');
     }
   };
 
@@ -114,28 +137,6 @@ function AdminDashboard({ onBack }) {
         console.error('Error deleting user:', error);
         toast.error(error.response?.data?.message || 'Error deleting user');
       }
-    }
-  };
-
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800';
-      case 'editor':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case 'admin':
-        return <Crown className="w-4 h-4" />;
-      case 'editor':
-        return <Edit2 className="w-4 h-4" />;
-      default:
-        return <Eye className="w-4 h-4" />;
     }
   };
 
@@ -181,7 +182,7 @@ function AdminDashboard({ onBack }) {
               <div>
                 <p className="text-gray-500 text-sm">Administrators</p>
                 <p className="text-3xl font-bold text-gray-800">
-                  {users.filter(u => u.role === 'admin').length}
+                  {users.filter(u => u.roles?.includes('admin')).length}
                 </p>
               </div>
               <Crown className="w-10 h-10 text-red-500 opacity-75" />
@@ -192,7 +193,7 @@ function AdminDashboard({ onBack }) {
               <div>
                 <p className="text-gray-500 text-sm">Editors</p>
                 <p className="text-3xl font-bold text-gray-800">
-                  {users.filter(u => u.role === 'editor').length}
+                  {users.filter(u => u.roles?.includes('editor')).length}
                 </p>
               </div>
               <Edit2 className="w-10 h-10 text-green-500 opacity-75" />
@@ -232,7 +233,7 @@ function AdminDashboard({ onBack }) {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -250,11 +251,22 @@ function AdminDashboard({ onBack }) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(user.role)}`}>
-                          {getRoleIcon(user.role)}
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </span>
+                      <div className="flex flex-wrap gap-2">
+                        {AVAILABLE_ROLES.map(role => (
+                          <button
+                            key={role.id}
+                            disabled={user.username === 'admin' && role.id === 'admin'}
+                            onClick={() => handleToggleRole(user, role.id)}
+                            className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition ${
+                              user.roles?.includes(role.id)
+                                ? role.color
+                                : 'bg-gray-100 text-gray-400 opacity-50 hover:opacity-100'
+                            }`}
+                          >
+                            {role.icon}
+                            {role.name}
+                          </button>
+                        ))}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -262,18 +274,6 @@ function AdminDashboard({ onBack }) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
-                        {/* Role Change Dropdown */}
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleUpdateRole(user._id, e.target.value)}
-                          className="text-sm border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          disabled={user.username === 'admin'}
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="editor">Editor</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                        
                         {/* Reset Password Button */}
                         <button
                           onClick={() => {
@@ -354,21 +354,39 @@ function AdminDashboard({ onBack }) {
                 </div>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1 text-gray-700">Role</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="editor">Editor</option>
-                  <option value="viewer">Viewer</option>
-                </select>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Roles</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {AVAILABLE_ROLES.map(role => (
+                    <button
+                      key={role.id}
+                      onClick={() => {
+                        const currentRoles = newUser.roles;
+                        if (currentRoles.includes(role.id)) {
+                          setNewUser({ ...newUser, roles: currentRoles.filter(r => r !== role.id) });
+                        } else {
+                          setNewUser({ ...newUser, roles: [...currentRoles, role.id] });
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
+                        newUser.roles.includes(role.id)
+                          ? role.color
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {role.icon}
+                      {role.name}
+                    </button>
+                  ))}
+                </div>
+                {newUser.roles.length === 0 && (
+                  <p className="text-red-500 text-xs mt-1">Select at least one role</p>
+                )}
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={handleCreateUser}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition flex-1"
+                  disabled={newUser.roles.length === 0}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition flex-1 disabled:opacity-50"
                 >
                   Create User
                 </button>
