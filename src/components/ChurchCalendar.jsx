@@ -123,11 +123,8 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
   };
 
   const toggleAttendance = (memberId) => {
-    // Check if event is in the past
-    const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
-
-    // Disable editing if it's a history record or a past event
-    if (editingEvent?.isHistory || isPast) return;
+    // Check if user has permission
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) return;
 
     setAttendance(prev => {
       if (prev[memberId] === 'present') {
@@ -141,8 +138,7 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
   };
 
   const toggleChildAttendance = (childId) => {
-    const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
-    if (editingEvent?.isHistory || isPast) return;
+    if (!userRoles.includes('admin') && !userRoles.includes('editor')) return;
 
     setChildAttendance(prev => {
       if (prev[childId] === 'present') {
@@ -178,9 +174,26 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
       setShowModal(false);
       resetForm();
       if (onEventHandled) onEventHandled();
+      fetchEvents(); // Refresh to update any visual indicators
     } catch (error) {
       console.error('Error saving attendance:', error);
       toast.error('Failed to save attendance');
+    }
+  };
+
+  const handleDeleteAttendance = async () => {
+    if (!window.confirm('Are you sure you want to delete all attendance records for this session?')) return;
+
+    try {
+      await axios.delete(`${API_URL}/attendance/session?eventId=${editingEvent.id}&eventDate=${editingEvent.start.toISOString()}`, getAuthHeaders());
+      toast.success('Attendance session deleted successfully');
+      setShowModal(false);
+      resetForm();
+      if (onEventHandled) onEventHandled();
+      fetchEvents();
+    } catch (error) {
+      console.error('Error deleting attendance:', error);
+      toast.error('Failed to delete attendance session');
     }
   };
 
@@ -593,12 +606,7 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
                         if (attendanceTab === 'members') {
                           const displayMembers = members.filter(m => {
                             const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
-                            const matchesSearch = fullName.includes(attendanceSearch.toLowerCase());
-
-                            if (editingEvent?.isHistory || isPast) {
-                              return matchesSearch && attendance[m._id] === 'present';
-                            }
-                            return matchesSearch;
+                            return fullName.includes(attendanceSearch.toLowerCase());
                           });
 
                           if (displayMembers.length === 0) {
@@ -619,7 +627,7 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
                               key={member._id}
                               onClick={() => toggleAttendance(member._id)}
                               className={`flex items-center justify-between p-4 transition-colors ${
-                                editingEvent?.isHistory || isPast ? 'cursor-default' : 'hover:bg-blue-50 cursor-pointer'
+                                (userRoles.includes('admin') || userRoles.includes('editor')) ? 'hover:bg-blue-50 cursor-pointer' : 'cursor-default'
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -646,12 +654,7 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
                           // Children Tab
                           const displayChildren = children.filter(c => {
                             const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
-                            const matchesSearch = fullName.includes(attendanceSearch.toLowerCase());
-
-                            if (editingEvent?.isHistory || isPast) {
-                              return matchesSearch && childAttendance[c._id] === 'present';
-                            }
-                            return matchesSearch;
+                            return fullName.includes(attendanceSearch.toLowerCase());
                           });
 
                           if (displayChildren.length === 0) {
@@ -672,7 +675,7 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
                               key={child._id}
                               onClick={() => toggleChildAttendance(child._id)}
                               className={`flex items-center justify-between p-4 transition-colors ${
-                                editingEvent?.isHistory || isPast ? 'cursor-default' : 'hover:bg-orange-50 cursor-pointer'
+                                (userRoles.includes('admin') || userRoles.includes('editor')) ? 'hover:bg-orange-50 cursor-pointer' : 'cursor-default'
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -715,16 +718,27 @@ function ChurchCalendar({ userRoles = [], members = [], children = [], initialEv
                     </div>
                   </div>
                   {(() => {
-                    const isPast = editingEvent?.start && new Date(editingEvent.start).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
-                    if (!editingEvent?.isHistory && !isPast) {
+                    if (userRoles.includes('admin') || userRoles.includes('editor')) {
+                      const hasRecords = Object.values(attendance).some(v => v === 'present') || Object.values(childAttendance).some(v => v === 'present');
                       return (
-                        <button
-                          onClick={handleSaveAttendance}
-                          disabled={isLoadingAttendance}
-                          className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md disabled:bg-gray-400"
-                        >
-                          Save Attendance
-                        </button>
+                        <div className="flex gap-2">
+                          {hasRecords && (
+                            <button
+                              onClick={handleDeleteAttendance}
+                              className="bg-red-50 text-red-600 px-3 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors"
+                              title="Delete this attendance session"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={handleSaveAttendance}
+                            disabled={isLoadingAttendance}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md disabled:bg-gray-400"
+                          >
+                            Save Attendance
+                          </button>
+                        </div>
                       );
                     }
                     return null;

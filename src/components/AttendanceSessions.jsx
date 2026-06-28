@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { CheckCircle, Calendar as CalendarIcon, Users, Search, ChevronRight } from 'lucide-react';
+import { CheckCircle, Calendar as CalendarIcon, Users, Search, ChevronRight, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -38,6 +38,20 @@ function AttendanceSessions({ onSelectSession }) {
   const filteredSessions = sessions.filter(session =>
     session.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDeleteSession = async (e, session) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete the attendance records for "${session.title}" on ${format(new Date(session.eventDate), 'PPP')}?`)) return;
+
+    try {
+      await axios.delete(`${API_URL}/attendance/session?eventId=${session.eventId}&eventDate=${session.eventDate}`, getAuthHeaders());
+      toast.success('Attendance session deleted successfully');
+      fetchSessions();
+    } catch (error) {
+      console.error('Error deleting session:', error.response?.data || error.message);
+      toast.error(error.response?.data?.message || 'Failed to delete attendance session');
+    }
+  };
 
   const getEventIcon = (type) => {
     switch (type) {
@@ -112,7 +126,16 @@ function AttendanceSessions({ onSelectSession }) {
                   </div>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleDeleteSession(e, session)}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                  title="Delete attendance session"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+              </div>
             </div>
           ))
         ) : (
